@@ -1,0 +1,75 @@
+<view class="container">
+  <!-- 本月概览 -->
+  <view class="hero card">
+    <view class="row between">
+      <view class="hero-label">{{overview.monthLabel || '本月'}}支出</view>
+      <view wx:if="{{familyName}}" class="tag">🏠 {{familyName}}</view>
+    </view>
+    <view class="hero-amount num">{{overview ? overview.monthTotal : '--'}}</view>
+    <view wx:if="{{overview}}" class="hero-sub small">
+      <text>上月 {{overview.lastMonth}}</text>
+      <text wx:if="{{overview.change !== null}}" class="{{overview.change > 0 ? 'up' : 'down'}}"> {{overview.change > 0 ? '▲' : '▼'}} {{overview.changeText}}</text>
+      <text class="muted"> · {{overview.monthCount}} 张小票</text>
+    </view>
+    <view class="hero-stats">
+      <view class="hero-stat">
+        <view class="muted tiny">今天</view>
+        <view class="bold num">{{overview ? overview.today : '--'}}</view>
+      </view>
+      <view class="hero-stat">
+        <view class="muted tiny">本周</view>
+        <view class="bold num">{{overview ? overview.week : '--'}}</view>
+      </view>
+      <view class="hero-stat">
+        <view class="muted tiny">日均</view>
+        <view class="bold num">{{overview ? overview.avgPerDay : '--'}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 记账入口 -->
+  <view class="actions">
+    <button class="btn btn-primary scan-btn" hover-class="btn-hover" bindtap="onCamera">📷 拍小票</button>
+    <view class="action-secondary">
+      <button class="btn" hover-class="btn-hover" bindtap="onAlbum">🖼️ 相册</button>
+      <button class="btn" hover-class="btn-hover" bindtap="onManual">✏️ 手动</button>
+    </view>
+  </view>
+
+  <!-- 本月趋势 -->
+  <view class="card" wx:if="{{overview}}">
+    <view class="card-title">
+      <text>每日支出</text>
+      <text class="more" bindtap="goStats">统计详情 ›</text>
+    </view>
+    <rb-chart type="bar" data="{{overview.series}}" height="300" emptyText="本月还没有记录" />
+  </view>
+
+  <!-- 分类 Top5 -->
+  <view class="card" wx:if="{{overview && overview.categories.length}}">
+    <view class="card-title">
+      <text>本月花在哪</text>
+      <text class="more" bindtap="goStats">全部 ›</text>
+    </view>
+    <view class="rank-row" wx:for="{{overview.categories}}" wx:key="id">
+      <view class="row between">
+        <text>{{item.icon}} {{item.name}}</text>
+        <text class="num"><text class="muted small">{{item.percent}}%  </text>{{item.amount}}</text>
+      </view>
+      <view class="rank-bar-track"><view class="rank-bar" style="width: {{item.width}}%"></view></view>
+    </view>
+  </view>
+
+  <!-- 最近小票 -->
+  <view class="card">
+    <view class="card-title">
+      <text>最近小票</text>
+      <text class="more" bindtap="goReceipts">全部 ›</text>
+    </view>
+    <view wx:if="{{!loading && !recent.length}}" class="empty">
+      <view class="empty-icon">🧾</view>
+      <view>还没有小票，拍一张试试吧</view>
+    </view>
+    <rb-receipt-item wx:for="{{recent}}" wx:key="_id" receipt="{{item}}" showDate="{{true}}" />
+  </view>
+</view>

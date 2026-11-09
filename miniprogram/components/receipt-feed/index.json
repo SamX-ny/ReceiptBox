@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "rb-receipt-item": "/components/receipt-item/index"
+  }
+}

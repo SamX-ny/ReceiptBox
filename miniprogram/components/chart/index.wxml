@@ -1,0 +1,16 @@
+<view class="chart" style="height: {{height}}rpx">
+  <canvas
+    type="2d"
+    id="rb-canvas"
+    class="canvas"
+    bindtouchstart="onTouch"
+    bindtouchmove="onTouch"
+    disable-scroll="{{false}}"
+  ></canvas>
+  <view wx:if="{{empty}}" class="empty-overlay">{{emptyText}}</view>
+  <view wx:if="{{tip}}" class="tip" style="left: {{tip.left}}px; top: {{tip.top}}px">
+    <view class="tip-title">{{tip.title}}</view>
+    <view class="tip-value">{{tip.value}}</view>
+    <view wx:if="{{tip.sub}}" class="tip-sub">{{tip.sub}}</view>
+  </view>
+</view>

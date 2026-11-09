@@ -132,10 +132,11 @@ async function merge(ctx, params) {
   const res = await db.collection('priceRecords').where({ familyId: ctx.family._id, productKey: fromKey }).update({
     data: { productKey: toKey, productName: t.productName, brand: t.brand || '', category: t.category }
   });
-  // 记录别名；指向 fromKey 的旧别名也一并改指向 toKey
-  await db.collection('productAliases').where({ familyId: ctx.family._id, toKey: fromKey }).update({ data: { toKey: toKey } });
+  // 记录别名（含目标商品的名称与分类）；指向 fromKey 的旧别名也一并改指向 toKey
+  const canonical = { toKey: toKey, productName: t.productName, brand: t.brand || '', category: t.category };
+  await db.collection('productAliases').where({ familyId: ctx.family._id, toKey: fromKey }).update({ data: canonical });
   await db.collection('productAliases').doc(ctx.family._id + ':' + fromKey).set({
-    data: { familyId: ctx.family._id, fromKey: fromKey, toKey: toKey, createdAt: db.serverDate() }
+    data: Object.assign({ familyId: ctx.family._id, fromKey: fromKey, createdAt: db.serverDate() }, canonical)
   });
   return { merged: res.stats ? res.stats.updated : 0, productKey: toKey };
 }
@@ -147,6 +148,8 @@ async function rename(ctx, params) {
   const data = { productName: name };
   if (params.category && categories.isCategory(params.category)) data.category = params.category;
   const res = await db.collection('priceRecords').where({ familyId: ctx.family._id, productKey: key }).update({ data: data });
+  // 已合并到该商品的别名也同步新名称/分类，之后的小票保持一致
+  await db.collection('productAliases').where({ familyId: ctx.family._id, toKey: key }).update({ data: data });
   return { updated: res.stats ? res.stats.updated : 0 };
 }
 

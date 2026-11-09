@@ -1,0 +1,56 @@
+.search {
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border-radius: 20rpx;
+  padding: 0 24rpx;
+  height: 76rpx;
+  margin-bottom: 20rpx;
+}
+
+.search-input {
+  flex: 1;
+  margin-left: 12rpx;
+}
+
+.clear {
+  padding: 12rpx;
+}
+
+.list {
+  margin-top: 24rpx;
+}
+
+.product {
+  padding: 24rpx 28rpx;
+  margin-bottom: 16rpx;
+}
+
+.name {
+  font-size: 30rpx;
+  font-weight: 500;
+}
+
+.spec {
+  margin-left: 10rpx;
+}
+
+.price-col {
+  text-align: right;
+  margin-left: 16rpx;
+}
+
+.price {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.foot {
+  margin-top: 14rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx solid var(--border);
+}
+
+.range {
+  text-align: right;
+}

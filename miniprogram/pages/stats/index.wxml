@@ -1,0 +1,113 @@
+<view class="container">
+  <view class="segmented">
+    <view wx:for="{{types}}" wx:key="id" class="seg {{type === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onType">{{item.name}}</view>
+  </view>
+
+  <view class="period-nav">
+    <view class="arrow" bindtap="onPrev">‹</view>
+    <picker mode="date" value="{{anchor}}" end="{{today}}" fields="{{type === 'year' ? 'year' : type === 'month' ? 'month' : 'day'}}" bindchange="onPickDate">
+      <view class="label">{{label}} ▾</view>
+    </picker>
+    <view class="arrow {{isCurrent ? 'disabled' : ''}}" bindtap="onNext">›</view>
+  </view>
+
+  <block wx:if="{{s}}">
+    <!-- 总览 -->
+    <view class="card summary">
+      <view class="muted small">总支出</view>
+      <view class="big num">{{s.total}}</view>
+      <view class="small secondary">
+        {{s.prevName}} {{s.prevTotal}}
+        <text wx:if="{{s.change !== null}}" class="{{s.change > 0 ? 'up' : 'down'}}"> {{s.change > 0 ? '▲' : '▼'}} {{s.changeText}}</text>
+      </view>
+      <view class="kpis">
+        <view class="kpi"><view class="muted tiny">小票</view><view class="bold num">{{s.count}} 张</view></view>
+        <view class="kpi"><view class="muted tiny">商品</view><view class="bold num">{{s.itemCount}} 件</view></view>
+        <view class="kpi" wx:if="{{type !== 'day'}}"><view class="muted tiny">日均</view><view class="bold num">{{s.avgPerDay}}</view></view>
+        <view class="kpi"><view class="muted tiny">单均</view><view class="bold num">{{s.avgPerReceipt}}</view></view>
+      </view>
+    </view>
+
+    <!-- 趋势 -->
+    <view class="card" wx:if="{{type !== 'day'}}">
+      <view class="card-title">
+        <text>{{type === 'year' ? '每月支出' : '每日支出'}}</text>
+        <text class="more">点柱子看金额</text>
+      </view>
+      <rb-chart type="bar" data="{{s.series}}" height="340" />
+    </view>
+
+    <!-- 日视图：当天买了什么、在哪买 -->
+    <view class="card" wx:if="{{type === 'day'}}">
+      <view class="card-title"><text>当天消费明细</text></view>
+      <view wx:if="{{!dayReceipts.length}}" class="empty"><view class="empty-icon">🌤️</view><view>这一天没有消费记录</view></view>
+      <view wx:for="{{dayReceipts}}" wx:for-item="r" wx:key="_id" class="day-receipt" data-id="{{r._id}}" bindtap="openReceipt">
+        <view class="row between">
+          <text class="bold">{{r.icon}} {{r.merchant}}</text>
+          <text class="bold num">{{r.total}}</text>
+        </view>
+        <view class="muted tiny" wx:if="{{r.time}}">🕐 {{r.time}}</view>
+        <view wx:for="{{r.items}}" wx:key="index" class="day-item row">
+          <text class="day-item-icon">{{item.icon}}</text>
+          <text class="flex-1 ellipsis small">{{item.name}}<text wx:if="{{item.spec}}" class="muted"> {{item.spec}}</text></text>
+          <text class="muted tiny cat-label">{{item.cat}}</text>
+          <text class="small num">{{item.price}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 分类 -->
+    <view class="card" wx:if="{{s.categories.length}}">
+      <view class="card-title"><text>分类支出</text><text class="more">点分类查看小票</text></view>
+      <view wx:for="{{s.categories}}" wx:key="id" class="rank-row" data-id="{{item.id}}" bindtap="openCategory">
+        <view class="row between">
+          <text>{{item.icon}} {{item.name}}</text>
+          <text class="num"><text class="muted small">{{item.percent}}%  </text>{{item.amountText}}</text>
+        </view>
+        <view class="rank-bar-track"><view class="rank-bar" style="width: {{item.width}}%"></view></view>
+      </view>
+    </view>
+
+    <!-- 商户 -->
+    <view class="card" wx:if="{{s.merchants.length}}">
+      <view class="card-title"><text>去了哪里</text><text class="more">按金额</text></view>
+      <view wx:for="{{s.merchants}}" wx:key="name" class="rank-row" data-name="{{item.name}}" bindtap="openMerchant">
+        <view class="row between">
+          <text class="ellipsis flex-1">{{item.icon}} {{item.name}} <text class="muted small">{{item.count}} 次</text></text>
+          <text class="num"><text class="muted small">{{item.percent}}%  </text>{{item.amountText}}</text>
+        </view>
+        <view class="rank-bar-track"><view class="rank-bar" style="width: {{item.width}}%"></view></view>
+      </view>
+    </view>
+
+    <!-- 商户类型 -->
+    <view class="card" wx:if="{{s.merchantTypes.length > 1}}">
+      <view class="card-title"><text>消费场所类型</text></view>
+      <view wx:for="{{s.merchantTypes}}" wx:key="id" class="rank-row" data-id="{{item.id}}" bindtap="openMerchantType">
+        <view class="row between">
+          <text>{{item.icon}} {{item.name}}</text>
+          <text class="num"><text class="muted small">{{item.percent}}%  </text>{{item.amountText}}</text>
+        </view>
+        <view class="rank-bar-track"><view class="rank-bar" style="width: {{item.width}}%"></view></view>
+      </view>
+    </view>
+
+    <!-- 商品 -->
+    <view class="card" wx:if="{{s.topItems.length}}">
+      <view class="card-title"><text>买得最多的商品</text><text class="more">点商品看价格走势</text></view>
+      <view wx:for="{{s.topItems}}" wx:key="index" class="list-item" data-key="{{item.productKey}}" bindtap="openItem">
+        <view class="icon-badge">{{item.icon}}</view>
+        <view class="flex-1">
+          <view class="ellipsis">{{item.name}}<text wx:if="{{item.spec}}" class="muted small"> {{item.spec}}</text></view>
+          <view class="muted tiny">买了 {{item.times}} 次</view>
+        </view>
+        <text class="num bold">{{item.amountText}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{!s.count && type !== 'day'}}" class="empty">
+      <view class="empty-icon">📊</view>
+      <view>这段时间还没有消费记录</view>
+    </view>
+  </block>
+</view>

@@ -1,0 +1,63 @@
+.hero {
+  padding: 36rpx 32rpx;
+}
+
+.hero-label {
+  color: var(--text-secondary);
+  font-size: 26rpx;
+}
+
+.hero-amount {
+  font-size: 72rpx;
+  font-weight: 700;
+  letter-spacing: -1rpx;
+  margin: 8rpx 0;
+}
+
+.hero-sub {
+  color: var(--text-secondary);
+}
+
+.hero-stats {
+  display: flex;
+  margin-top: 28rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid var(--border);
+}
+
+.hero-stat {
+  flex: 1;
+}
+
+.actions {
+  display: flex;
+  margin-bottom: 24rpx;
+}
+
+.scan-btn {
+  flex: 1.4;
+  height: 112rpx;
+  border-radius: 28rpx;
+  font-size: 34rpx;
+  margin: 0 16rpx 0 0;
+}
+
+.action-secondary {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.action-secondary .btn {
+  height: 52rpx;
+  border-radius: 16rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  background: var(--surface);
+  margin: 0;
+  width: 100%;
+}
+
+.action-secondary .btn + .btn {
+  margin-top: 8rpx;
+}

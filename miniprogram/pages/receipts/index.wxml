@@ -1,0 +1,25 @@
+<view class="container">
+  <view class="period-nav">
+    <view class="arrow" bindtap="onPrev">‹</view>
+    <view class="center">
+      <view class="label">{{label}}</view>
+      <view class="muted small num">{{count}} 张小票 · {{category ? '该分类 ' : '共 '}}{{total}}</view>
+    </view>
+    <view class="arrow {{isCurrent ? 'disabled' : ''}}" bindtap="onNext">›</view>
+  </view>
+
+  <view class="search">
+    <text class="muted">🔍</text>
+    <input class="search-input" placeholder="搜索商户或商品" value="{{keyword}}" confirm-type="search" bindinput="onSearchInput" />
+    <text wx:if="{{keyword}}" class="muted clear" bindtap="onSearchClear">✕</text>
+  </view>
+
+  <scroll-view scroll-x class="chips" enhanced show-scrollbar="{{false}}">
+    <view wx:for="{{chips}}" wx:key="id" class="chip {{category === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onChip">{{item.label}}</view>
+  </scroll-view>
+
+  <view style="height: 24rpx"></view>
+  <rb-receipt-feed wx:if="{{filter}}" id="feed" filter="{{filter}}" emptyText="这个月还没有小票" />
+
+  <view class="fab" bindtap="onAdd" hover-class="btn-hover">＋</view>
+</view>

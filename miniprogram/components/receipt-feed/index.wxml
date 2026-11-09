@@ -1,0 +1,14 @@
+<view>
+  <view wx:for="{{groups}}" wx:for-item="g" wx:key="date" class="day card">
+    <view class="day-head row between">
+      <text class="bold">{{g.label}}</text>
+      <text class="muted small num">{{g.receipts.length}} 笔 · {{g.totalText}}</text>
+    </view>
+    <rb-receipt-item wx:for="{{g.receipts}}" wx:key="_id" receipt="{{item}}" />
+  </view>
+  <view wx:if="{{loaded && !groups.length}}" class="empty">
+    <view class="empty-icon">🧾</view>
+    <view>{{emptyText}}</view>
+  </view>
+  <view wx:if="{{groups.length}}" class="load-more">{{loading ? '加载中…' : hasMore ? '上拉加载更多' : '没有更多了'}}</view>
+</view>

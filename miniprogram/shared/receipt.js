@@ -194,7 +194,7 @@ function primaryCategory(receipt, fallback) {
 
 /**
  * 由一张小票生成价格记录（每个商品一行），写入 priceRecords 集合用于价格追踪。
- * aliases: { productKey: canonicalProductKey }，用于用户合并过的同类商品。
+ * aliases: { productKey: canonicalKey | { productKey, productName, brand, category } }，用于用户合并过的同类商品。
  */
 function buildPriceRecords(receipt, ctx) {
   ctx = ctx || {};
@@ -202,18 +202,21 @@ function buildPriceRecords(receipt, ctx) {
   const records = [];
   (receipt.items || []).forEach(function (it, idx) {
     if (!it.productKey || !(it.unitPrice > 0)) return;
-    const key = aliases[it.productKey] || it.productKey;
+    // 别名：用户合并过的商品，统一使用目标商品的键、名称与分类
+    let alias = aliases[it.productKey];
+    if (typeof alias === 'string') alias = { productKey: alias };
+    alias = alias || {};
     const measure = product.measurePrice(it);
     records.push({
       familyId: ctx.familyId,
       receiptId: ctx.receiptId,
       itemIndex: idx,
-      productKey: key,
-      productName: it.productName || it.name,
+      productKey: alias.productKey || it.productKey,
+      productName: alias.productName || it.productName || it.name,
       rawName: it.name,
-      brand: it.brand || '',
+      brand: alias.productName ? (alias.brand || '') : (it.brand || ''),
       spec: it.spec || '',
-      category: it.category,
+      category: alias.category || it.category,
       quantity: it.quantity,
       unit: it.unit,
       unitPrice: it.unitPrice,

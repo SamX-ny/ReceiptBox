@@ -5,9 +5,15 @@
   "private": true,
   "scripts": {
     "sync": "node scripts/sync-shared.js",
-    "test": "node scripts/sync-shared.js --check && node --test test/*.test.js"
+    "test": "node scripts/sync-shared.js --check && node --test test/*.test.js",
+    "test:ui": "node test/ui/pages.sim.js"
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "global-jsdom": "^24.0.0",
+    "jsdom": "^24.1.3",
+    "miniprogram-simulate": "^1.6.1"
   }
 }

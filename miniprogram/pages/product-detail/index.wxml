@@ -1,0 +1,104 @@
+<view class="container" wx:if="{{v}}">
+  <view class="card head">
+    <view class="row">
+      <view class="icon-badge">{{v.icon}}</view>
+      <view class="flex-1">
+        <view class="title">{{p.productName}}</view>
+        <view class="muted small">
+          <text wx:if="{{p.spec}}" class="tag">{{p.spec}}</text>
+          <text wx:if="{{p.brand}}"> {{p.brand}} ·</text>
+          {{v.catName}} · 记录 {{v.count}} 次
+        </view>
+      </view>
+    </view>
+
+    <view class="latest">
+      <view class="muted small">最近一次</view>
+      <view class="row baseline">
+        <text class="latest-price num">{{v.latest}}</text>
+        <text wx:if="{{v.latestMeasure}}" class="muted small num"> ≈ {{v.latestMeasure}}</text>
+      </view>
+      <view class="small secondary">{{v.latestWhere}}
+        <text wx:if="{{v.latestVsAvg !== null && v.count > 1}}" class="{{v.latestVsAvg > 0 ? 'up' : 'down'}}"> · 较均价 {{v.latestVsAvgText}}</text>
+      </view>
+    </view>
+
+    <view class="kpis">
+      <view class="kpi">
+        <view class="muted tiny">最低</view>
+        <view class="bold num">{{v.min}}</view>
+        <view class="muted tiny ellipsis">{{v.minWhere}}</view>
+      </view>
+      <view class="kpi">
+        <view class="muted tiny">均价</view>
+        <view class="bold num">{{v.avg}}</view>
+      </view>
+      <view class="kpi">
+        <view class="muted tiny">最高</view>
+        <view class="bold num">{{v.max}}</view>
+        <view class="muted tiny ellipsis">{{v.maxWhere}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{v.chart.length > 1}}">
+    <view class="card-title"><text>价格走势</text><text class="more">点圆点看详情</text></view>
+    <rb-chart type="line" data="{{v.chart}}" height="340" zeroBased="{{false}}" />
+  </view>
+
+  <view class="card" wx:if="{{v.stores.length}}">
+    <view class="card-title">
+      <text>各商店价格</text>
+      <text wx:if="{{v.cheapestStore}}" class="more">💡 {{v.cheapestStore}} 平均最便宜</text>
+    </view>
+    <view class="store-head row tiny muted">
+      <text class="flex-1">商店</text><text class="col">均价</text><text class="col">最低</text><text class="col">最近</text>
+    </view>
+    <view wx:for="{{v.stores}}" wx:key="name" class="store row">
+      <view class="flex-1 ellipsis">
+        <text>{{item.name}}</text>
+        <text wx:if="{{item.best}}" class="best tiny">最低</text>
+        <view class="muted tiny">{{item.count}} 次 · 最近 {{item.lastDate}}</view>
+      </view>
+      <text class="col num bold">{{item.avg}}</text>
+      <text class="col num">{{item.min}}</text>
+      <text class="col num">{{item.last}}</text>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{v.variants.length}}">
+    <view class="card-title"><text>其他规格</text><text class="more">按单位价格比较</text></view>
+    <view wx:for="{{v.variants}}" wx:key="key" class="list-item" data-key="{{item.key}}" bindtap="openVariant">
+      <view class="flex-1">
+        <view><text class="tag">{{item.spec}}</text> <text class="num">{{item.last}}</text></view>
+        <view class="muted tiny">{{item.where}}</view>
+      </view>
+      <text wx:if="{{item.measure}}" class="num secondary">{{item.measure}}</text>
+      <text class="muted"> ›</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-title"><text>购买记录</text></view>
+    <view wx:for="{{v.history}}" wx:key="index" class="list-item" data-id="{{item.receiptId}}" bindtap="openReceipt">
+      <view class="flex-1">
+        <view>{{item.merchant}}</view>
+        <view class="muted tiny">{{item.date}}<text wx:if="{{item.qty}}"> · {{item.qty}}</text></view>
+      </view>
+      <view class="right">
+        <view class="num bold">{{item.price}}</view>
+        <view wx:if="{{item.measure}}" class="muted tiny num">{{item.measure}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card manage">
+    <view class="manage-item" bindtap="onRename">✏️ 重命名</view>
+    <picker range="{{categoryNames}}" value="{{v.catIndex}}" bindchange="onCategory">
+      <view class="manage-item">🗂️ 修改分类</view>
+    </picker>
+    <view class="manage-item" bindtap="onMerge">🔗 与其他商品合并</view>
+  </view>
+  <view class="muted tiny tip">同一种商品因写法不同被识别成两条时，可以用“合并”把它们的价格记录放在一起比较。</view>
+</view>
+<view wx:elif="{{!loading}}" class="empty"><view class="empty-icon">🏷️</view><view>没有找到这个商品的价格记录</view></view>

@@ -1,0 +1,80 @@
+.title {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.latest {
+  margin-top: 28rpx;
+}
+
+.baseline {
+  align-items: baseline;
+}
+
+.latest-price {
+  font-size: 60rpx;
+  font-weight: 700;
+}
+
+.kpis {
+  display: flex;
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid var(--border);
+}
+
+.kpi {
+  flex: 1;
+  min-width: 0;
+  padding-right: 12rpx;
+}
+
+.store-head {
+  padding-bottom: 8rpx;
+  border-bottom: 1rpx solid var(--border);
+}
+
+.store {
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid var(--border);
+}
+
+.store:last-child {
+  border-bottom: none;
+}
+
+.col {
+  width: 128rpx;
+  text-align: right;
+  font-size: 26rpx;
+}
+
+.best {
+  margin-left: 10rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.right {
+  text-align: right;
+}
+
+.manage {
+  padding: 8rpx 32rpx;
+}
+
+.manage-item {
+  padding: 26rpx 0;
+  border-bottom: 1rpx solid var(--border);
+}
+
+.manage picker:last-child .manage-item,
+.manage > .manage-item:last-child {
+  border-bottom: none;
+}
+
+.tip {
+  padding: 0 16rpx 24rpx;
+}

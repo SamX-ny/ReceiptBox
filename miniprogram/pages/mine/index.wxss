@@ -1,0 +1,95 @@
+.profile {
+  display: flex;
+  align-items: center;
+}
+
+.avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 48rpx;
+  background: var(--brand-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  margin-right: 24rpx;
+}
+
+.big {
+  font-size: 34rpx;
+}
+
+.members {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 16rpx;
+}
+
+.member {
+  width: 120rpx;
+  text-align: center;
+  margin: 0 12rpx 16rpx 0;
+}
+
+.member-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  margin: 0 auto 8rpx;
+  border-radius: 40rpx;
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.member-name {
+  color: var(--text-secondary);
+}
+
+.invite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface-2);
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 12rpx;
+}
+
+.code {
+  font-size: 44rpx;
+  font-weight: 700;
+  letter-spacing: 8rpx;
+}
+
+.links {
+  margin-top: 16rpx;
+}
+
+.link-item {
+  padding: 24rpx 0;
+  border-top: 1rpx solid var(--border);
+}
+
+.danger {
+  color: var(--bad);
+}
+
+.cats {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.cat {
+  width: 25%;
+  text-align: center;
+  padding: 12rpx 0;
+  color: var(--text-secondary);
+}
+
+.cat-icon {
+  font-size: 40rpx;
+}
+
+.about view + view {
+  margin-top: 4rpx;
+}

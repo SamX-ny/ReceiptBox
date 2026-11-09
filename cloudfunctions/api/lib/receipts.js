@@ -15,7 +15,9 @@ const LIST_FIELDS = {
 async function loadAliases(familyId) {
   const rows = await fetchAll(db.collection('productAliases').where({ familyId: familyId }), { max: 5000 });
   const map = {};
-  rows.forEach(function (r) { map[r.fromKey] = r.toKey; });
+  rows.forEach(function (r) {
+    map[r.fromKey] = { productKey: r.toKey, productName: r.productName || '', brand: r.brand || '', category: r.category || '' };
+  });
   return map;
 }
 

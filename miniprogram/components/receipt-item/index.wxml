@@ -1,0 +1,11 @@
+<view wx:if="{{view}}" class="receipt-item" bindtap="onTap" hover-class="hover">
+  <view class="icon-badge">{{view.icon}}</view>
+  <view class="body">
+    <view class="name ellipsis">{{view.name}}<text wx:if="{{view.branch}}" class="branch"> · {{view.branch}}</text></view>
+    <view class="meta ellipsis">{{view.meta}}</view>
+  </view>
+  <view class="right">
+    <view class="amount num">{{view.amount}}</view>
+    <view class="cat">{{view.category}}</view>
+  </view>
+</view>

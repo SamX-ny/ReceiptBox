@@ -1,0 +1,70 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/receipts/index",
+    "pages/stats/index",
+    "pages/products/index",
+    "pages/mine/index",
+    "pages/scan/index",
+    "pages/receipt-edit/index",
+    "pages/receipt-detail/index",
+    "pages/receipt-list/index",
+    "pages/product-detail/index",
+    "pages/product-pick/index"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "@navBg",
+    "navigationBarTextStyle": "@navText",
+    "navigationBarTitleText": "Receipt Box 收据箱",
+    "backgroundColor": "@bgColor",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "@tabText",
+    "selectedColor": "@tabSelected",
+    "backgroundColor": "@tabBg",
+    "borderStyle": "@tabBorder",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "@iconHome",
+        "selectedIconPath": "@iconHomeActive"
+      },
+      {
+        "pagePath": "pages/receipts/index",
+        "text": "账单",
+        "iconPath": "@iconList",
+        "selectedIconPath": "@iconListActive"
+      },
+      {
+        "pagePath": "pages/stats/index",
+        "text": "统计",
+        "iconPath": "@iconStats",
+        "selectedIconPath": "@iconStatsActive"
+      },
+      {
+        "pagePath": "pages/products/index",
+        "text": "比价",
+        "iconPath": "@iconPrice",
+        "selectedIconPath": "@iconPriceActive"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的",
+        "iconPath": "@iconMine",
+        "selectedIconPath": "@iconMineActive"
+      }
+    ]
+  },
+  "darkmode": true,
+  "themeLocation": "theme.json",
+  "usingComponents": {
+    "rb-chart": "/components/chart/index",
+    "rb-receipt-item": "/components/receipt-item/index",
+    "rb-receipt-feed": "/components/receipt-feed/index"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

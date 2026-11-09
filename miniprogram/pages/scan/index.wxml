@@ -1,0 +1,25 @@
+<view class="container">
+  <view class="preview card" bindtap="onPreview">
+    <image class="photo" src="{{path}}" mode="aspectFit" />
+    <view wx:if="{{!error}}" class="scan-line"></view>
+  </view>
+
+  <view class="card">
+    <view wx:for="{{stepViews}}" wx:key="name" class="step {{item.state}}">
+      <view class="dot">{{item.mark}}</view>
+      <view class="flex-1">{{item.name}}</view>
+      <view wx:if="{{item.state === 'doing'}}" class="muted small">进行中…</view>
+    </view>
+    <view wx:if="{{!error}}" class="muted small hint">识别一般需要 10～30 秒，请稍候</view>
+  </view>
+
+  <view wx:if="{{error}}" class="card error-card">
+    <view class="bold">😕 {{error}}</view>
+    <view class="muted small" style="margin-top: 8rpx">可以重试，或者直接手动填写这张小票</view>
+    <view class="row" style="margin-top: 24rpx">
+      <button class="btn btn-primary flex-1" hover-class="btn-hover" bindtap="onRetry">重新识别</button>
+      <view style="width: 20rpx"></view>
+      <button class="btn flex-1" hover-class="btn-hover" bindtap="onManual">手动录入</button>
+    </view>
+  </view>
+</view>

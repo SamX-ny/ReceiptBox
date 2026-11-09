@@ -131,7 +131,8 @@ function productKey(item) {
   if (brandSlug && base.indexOf(brandSlug) !== 0) base = brandSlug + '-' + base;
   if (!base) return '';
   const size = parseSize(item.spec) || parseSize(rawName);
-  return size ? base + '|' + slug(size.label.replace('×', 'x')) : base;
+  // 规格标签由 parseSize 生成（只含数字、小数点与单位），保留小数点便于阅读，如 'coca-cola-classic|1.25l'
+  return size ? base + '|' + size.label.replace('×', 'x').toLowerCase() : base;
 }
 
 /**
