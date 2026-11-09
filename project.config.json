@@ -4,7 +4,7 @@
   "cloudfunctionRoot": "cloudfunctions/",
   "compileType": "miniprogram",
   "projectname": "ReceiptBox",
-  "appid": "wx0000000000000000",
+  "appid": "wxe862b726013f7af9",
   "libVersion": "3.4.0",
   "setting": {
     "es6": true,
