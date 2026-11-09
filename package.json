@@ -1,0 +1,13 @@
+{
+  "name": "receipt-box",
+  "version": "1.0.0",
+  "description": "Receipt Box 收据箱：拍照识别小票、家庭开销统计与商品价格追踪的微信小程序",
+  "private": true,
+  "scripts": {
+    "sync": "node scripts/sync-shared.js",
+    "test": "node scripts/sync-shared.js --check && node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
