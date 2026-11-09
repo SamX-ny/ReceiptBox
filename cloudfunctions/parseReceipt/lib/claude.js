@@ -1,7 +1,8 @@
 /**
- * 调用 Claude（视觉 + 结构化输出）把小票照片解析为结构化 JSON。
+ * 可选识别引擎：调用 Claude（视觉 + 结构化输出）把小票照片解析为结构化 JSON。
  *
  * 环境变量（在云开发控制台 → 云函数 → parseReceipt → 函数配置 中设置）：
+ *   RECEIPT_ENGINE      设为 claude 才会启用（默认使用微信 OCR）
  *   ANTHROPIC_API_KEY   必填，Claude API Key
  *   ANTHROPIC_BASE_URL  可选，API 网关/代理地址（云函数所在地域无法直连时使用）
  *   RECEIPT_CLAUDE_MODEL  可选，默认 claude-opus-5-5

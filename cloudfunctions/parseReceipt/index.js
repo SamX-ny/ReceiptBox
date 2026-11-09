@@ -4,9 +4,9 @@
  * 入参：{ fileID: 'cloud://...' }
  * 返回：{ ok: true, draft, warnings, engine } 或 { ok: false, code, message }
  *
- * 识别引擎：
- *   - 配置了 ANTHROPIC_API_KEY：使用 Claude 视觉模型（推荐，准确度高，能规范化商品名用于比价）
- *   - 否则：使用微信 OCR 通用印刷体识别 + 规则解析（需在小程序后台开通 OCR 服务）
+ * 识别引擎（云函数环境变量 RECEIPT_ENGINE）：
+ *   - 未设置或 wechat-ocr（默认）：微信 OCR 通用印刷体识别 + 规则解析（需在微信服务市场开通 OCR 服务）
+ *   - claude：Claude 视觉模型，能规范化商品名、跨商店比价更准（需同时配置 ANTHROPIC_API_KEY）
  */
 
 const cloud = require('wx-server-sdk');
@@ -15,7 +15,7 @@ const ocrParser = require('./lib/ocrParser');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // Claude 单张图片上限 5MB
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 上限 5MB（小程序端会先压缩到 2MB 以内）
 
 function detectMediaType(buf) {
   if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
@@ -33,12 +33,30 @@ async function recognizeWithClaude(buffer, mediaType) {
 }
 
 async function recognizeWithWechatOcr(buffer, mediaType) {
-  const res = await cloud.openapi.ocr.printedText({
-    type: 'photo',
-    img: { contentType: mediaType, value: buffer }
-  });
-  const lines = (res.items || []).map(function (it) { return it.text; });
+  let res;
+  try {
+    res = await cloud.openapi.ocr.printedText({
+      type: 'photo',
+      img: { contentType: mediaType, value: buffer }
+    });
+  } catch (err) {
+    console.error('wechat ocr failed', err);
+    const e = new Error('微信 OCR 调用失败' + (err.errCode ? '（错误码 ' + err.errCode + '）' : '') + '，请确认已在微信服务市场开通 OCR 服务，或换一张更清晰的照片');
+    e.code = 'OCR_FAILED';
+    throw e;
+  }
+  // 按坐标把同一行的文字块（如左侧商品名、右侧价格）合并成一行再解析
+  const lines = ocrParser.linesFromOcrItems(res.items || []);
+  if (!lines.length) {
+    const e = new Error('没有识别到文字，请对准小票、保持光线充足后重拍');
+    e.code = 'NO_TEXT';
+    throw e;
+  }
   return { data: ocrParser.parseLines(lines), engine: 'wechat-ocr' };
+}
+
+function selectedEngine() {
+  return String(process.env.RECEIPT_ENGINE || '').trim().toLowerCase() === 'claude' ? 'claude' : 'wechat-ocr';
 }
 
 exports.main = async function (event) {
@@ -65,9 +83,14 @@ exports.main = async function (event) {
 
   let recognized;
   try {
-    recognized = process.env.ANTHROPIC_API_KEY
-      ? await recognizeWithClaude(buffer, mediaType)
-      : await recognizeWithWechatOcr(buffer, mediaType);
+    if (selectedEngine() === 'claude') {
+      if (!process.env.ANTHROPIC_API_KEY) {
+        return { ok: false, code: 'CONFIG', message: '已选择 Claude 识别，但未配置 ANTHROPIC_API_KEY' };
+      }
+      recognized = await recognizeWithClaude(buffer, mediaType);
+    } else {
+      recognized = await recognizeWithWechatOcr(buffer, mediaType);
+    }
   } catch (err) {
     console.error('recognize failed', err);
     return { ok: false, code: err.code || 'RECOGNIZE_FAILED', message: err.code && err.message ? err.message : '识别失败，请重试或手动录入' };
@@ -95,4 +118,4 @@ exports.main = async function (event) {
 };
 
 // 便于单元测试
-exports._internal = { detectMediaType: detectMediaType };
+exports._internal = { detectMediaType: detectMediaType, selectedEngine: selectedEngine };

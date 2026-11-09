@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseLines } = require('../cloudfunctions/parseReceipt/lib/ocrParser');
+const { parseLines, linesFromOcrItems } = require('../cloudfunctions/parseReceipt/lib/ocrParser');
 const receiptLib = require('../shared/receipt');
 
 const WOOLWORTHS = [
@@ -65,4 +65,12 @@ test('parseLines: 中文餐厅小票', () => {
   assert.equal(d.total, 54.5);
   assert.equal(d.items.length, 3);
   assert.equal(d.items.every(it => it.category === 'dining' || it.category === 'beverages' || it.category === 'meat'), true);
+});
+
+test('linesFromOcrItems: 同一行的文字块按从左到右合并', () => {
+  const box = (text, x, y) => ({ text, pos: { left_top: { x, y }, right_top: { x: x + 50, y }, right_bottom: { x: x + 50, y: y + 20 }, left_bottom: { x, y: y + 20 } } });
+  assert.deepEqual(linesFromOcrItems([box('4.00', 300, 41), box('MILK 2L', 10, 40), box('Coles', 10, 0), box('', 0, 0)]), ['Coles', 'MILK 2L   4.00']);
+  // 缺少坐标时按原顺序返回
+  assert.deepEqual(linesFromOcrItems([{ text: 'A' }, box('B', 0, 0)]), ['A', 'B']);
+  assert.deepEqual(linesFromOcrItems(undefined), []);
 });

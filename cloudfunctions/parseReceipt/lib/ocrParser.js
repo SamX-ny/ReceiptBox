@@ -1,6 +1,6 @@
 /**
- * 兜底方案：微信 OCR（通用印刷体识别）得到的文本行 → 规则解析为小票草稿。
- * 准确度不如 Claude 视觉识别，但不依赖外部服务；用户在确认页可以手动修正。
+ * 默认识别方案：微信 OCR（通用印刷体识别）得到的文字块 → 按行合并 → 规则解析为小票草稿。
+ * 不依赖外部服务；商品名不做规范化，识别结果可在确认页手动修正。
  */
 
 const categories = require('../shared/categories');
@@ -160,6 +160,49 @@ function parseLines(lines, opts) {
   return draft;
 }
 
+/**
+ * 把 OCR 返回的文字块按坐标合并成“视觉上的一行”。
+ * 小票上左边的商品名和右边的价格常被识别成两个独立的块，合并后才能正确配对。
+ * items: [{ text, pos: { left_top: {x,y}, right_top, right_bottom, left_bottom } }]
+ * 若任一文字块缺少坐标，按原顺序逐条返回。
+ */
+function linesFromOcrItems(items) {
+  const texts = [];
+  const boxes = [];
+  let allHavePos = true;
+  (items || []).forEach(function (it) {
+    const text = String((it && it.text) || '').trim();
+    if (!text) return;
+    texts.push(text);
+    const p = it.pos;
+    const corners = p ? [p.left_top, p.right_top, p.right_bottom, p.left_bottom].filter(Boolean) : [];
+    if (corners.length < 2) { allHavePos = false; return; }
+    const ys = corners.map(function (c) { return Number(c.y) || 0; });
+    const xs = corners.map(function (c) { return Number(c.x) || 0; });
+    const top = Math.min.apply(null, ys);
+    const bottom = Math.max.apply(null, ys);
+    boxes.push({ text: text, top: top, bottom: bottom, mid: (top + bottom) / 2, h: Math.max(1, bottom - top), left: Math.min.apply(null, xs) });
+  });
+  if (!allHavePos || !boxes.length) return texts;
+
+  boxes.sort(function (a, b) { return a.mid - b.mid; });
+  const rows = [];
+  boxes.forEach(function (b) {
+    const row = rows[rows.length - 1];
+    // 垂直中心相差不超过半个字高，视为同一行
+    if (row && Math.abs(b.mid - row.mid) <= Math.min(b.h, row.h) * 0.5) {
+      row.boxes.push(b);
+      row.mid = (row.mid * (row.boxes.length - 1) + b.mid) / row.boxes.length;
+      row.h = Math.max(row.h, b.h);
+    } else {
+      rows.push({ mid: b.mid, h: b.h, boxes: [b] });
+    }
+  });
+  return rows.map(function (r) {
+    return r.boxes.sort(function (a, b) { return a.left - b.left; }).map(function (b) { return b.text; }).join('   ');
+  });
+}
+
 function finishItem(item, fallbackCategory) {
   item.productName = item.productName || '';
   item.brand = item.brand || '';
@@ -169,5 +212,6 @@ function finishItem(item, fallbackCategory) {
 }
 
 module.exports = {
-  parseLines: parseLines
+  parseLines: parseLines,
+  linesFromOcrItems: linesFromOcrItems
 };

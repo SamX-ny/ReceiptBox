@@ -14,7 +14,7 @@
 | --- | --- |
 | 前端 | 原生微信小程序（WXML / WXSS / JS），支持深色模式；图表为自绘 Canvas 2D 组件，无第三方依赖 |
 | 后端 | 微信云开发：云数据库 + 云存储 + 云函数（`api`、`parseReceipt`） |
-| 小票识别 | 默认使用 Claude 视觉模型（`claude-opus-5-5`）+ 结构化输出（JSON Schema）直接从照片解析出商户、商品、分类与规范化商品名；未配置 Claude 时退回到 **微信 OCR 通用印刷体识别 + 规则解析** |
+| 小票识别 | 默认使用 **微信 OCR 通用印刷体识别 + 按行合并 + 规则解析**；可选切换为 Claude 视觉模型（`claude-opus-5-5`，结构化输出），商品名规范化更好 |
 
 ```
 小程序                       云函数                          外部服务
@@ -22,8 +22,8 @@
 │ 拍照 / 相册     │ ────────▶ │  云存储        │
 │ 识别页          │           └──────┬───────┘
 │                │  fileID   ┌──────▼───────┐  图片  ┌──────────────┐
-│                │ ────────▶ │ parseReceipt │ ─────▶ │ Claude API   │
-│ 确认 / 编辑页    │ ◀──草稿── │（不写库）      │ ◀JSON─ │ (或微信 OCR)  │
+│                │ ────────▶ │ parseReceipt │ ─────▶ │ 微信 OCR      │
+│ 确认 / 编辑页    │ ◀──草稿── │（不写库）      │ ◀文字─ │ (可选 Claude) │
 │                │           └──────────────┘        └──────────────┘
 │                │  保存     ┌──────────────┐
 │ 首页 / 账单 /    │ ────────▶ │     api      │──▶ receipts / priceRecords / families …
@@ -58,7 +58,7 @@ ReceiptBox/
 │   └── utils/
 ├── cloudfunctions/
 │   ├── api/                   # 业务接口：家庭、小票增删改查、统计、价格追踪
-│   └── parseReceipt/          # 小票识别：Claude 视觉 / 微信 OCR
+│   └── parseReceipt/          # 小票识别：微信 OCR（默认）/ Claude 视觉（可选）
 ├── shared/                    # 前后端共用逻辑的源文件（分类、商品规格归一化、日期、统计）
 ├── scripts/sync-shared.js     # 把 shared/ 复制到小程序与云函数目录
 └── test/                      # 单元测试、云函数集成测试、页面冒烟测试
@@ -95,30 +95,32 @@ ReceiptBox/
 
 ### 4. 配置小票识别
 
-**方式 A：Claude 视觉识别（推荐）**
+**默认：微信 OCR（不用改代码，只需开通服务）**
 
-在云开发控制台 → 云函数 → `parseReceipt` → 函数配置 → 环境变量中添加：
+在 [微信服务市场](https://fuwu.weixin.qq.com/) 为小程序开通「OCR 识别 / 通用印刷体识别」服务即可（有免费额度与付费档，以开通页面为准）。云函数 `parseReceipt` 的 `config.json` 已声明 `ocr.printedText` 权限。
+
+识别流程：OCR 返回的文字块先**按坐标合并成行**（小票上左侧商品名与右侧价格常被识别成两块），再用规则解析出商户、日期时间、商品、折扣、GST、合计与支付方式。能处理常见的澳洲超市小票格式：称重商品（`0.856 kg NET @ $3.90/kg`）、多件（`2 @ $1.50 each`）、`Less Promotion` 等折扣行。商品会按关键词自动分类。
+
+局限：商品名按小票原文保存，不做规范化，所以不同超市对同一商品的写法不同时，会被当成两个商品——可以在商品详情页「与其他商品合并」，之后自动归并。识别结果请在确认页核对。
+
+**可选：Claude 视觉识别**
+
+识别更准、能把不同写法的商品名规范成同一个（跨商店比价更好用）。在云开发控制台 → 云函数 → `parseReceipt` → 函数配置 → 环境变量中添加：
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
+| `RECEIPT_ENGINE` | ✅ | 设为 `claude`（不设置或其他值都使用微信 OCR） |
 | `ANTHROPIC_API_KEY` | ✅ | Claude API Key（在 [Claude Console](https://platform.claude.com/) 创建） |
 | `ANTHROPIC_BASE_URL` | | API 地址。如果云函数所在网络无法访问 `api.anthropic.com`，填你自己的转发网关地址 |
 | `RECEIPT_CLAUDE_MODEL` | | 默认 `claude-opus-5-5` |
-| `RECEIPT_CLAUDE_EFFORT` | | `low` / `medium` / `high`，默认 `low` |
+| `RECEIPT_CLAUDE_EFFORT` | | `low` / `medium` / `high`，默认 `low`（云函数单次最长 60 秒） |
 
-说明：
-- 识别使用 Claude 的**结构化输出**（`output_config.format` + JSON Schema），保证返回字段完整、分类取值合法；并开启了服务端 `fallbacks: "default"`，偶发的安全策略拒绝会自动换用推荐的备用模型重试。
-- 默认 `effort` 为 `low`：小票识别以「看清并抄录」为主，`low` 已能胜任，且云函数单次最长只能运行 60 秒。如果发现长小票识别不全，可改为 `medium`，同时关注是否超时。
-- 小票照片会发送给 Anthropic 进行识别，请在小程序的隐私说明中告知用户。
-
-**方式 B：微信 OCR（无需外部服务）**
-
-不配置 `ANTHROPIC_API_KEY` 时自动使用。需在 [微信服务市场](https://fuwu.weixin.qq.com/) 为小程序开通「OCR 识别 / 通用印刷体识别」服务。规则解析能识别常见的澳洲超市小票格式（称重商品、`2 @ $1.50`、`Less Promotion` 折扣、GST、TOTAL 等），但商品名不会被规范化，跨商店比价的效果不如方式 A，建议在确认页仔细核对。
+启用 Claude 后，小票照片会发送给 Anthropic 进行识别，请在小程序的隐私说明中告知用户。
 
 ### 5. 隐私与上线
 
 - 在小程序管理后台「设置 → 服务内容声明 → 用户隐私保护指引」中声明使用了**摄像头**、**选中的照片**（用于拍摄/选择小票），否则 `wx.chooseMedia` 会被拦截。
-- 若使用方式 A，在隐私指引中说明小票图片会提交给第三方识别服务。
+- 若启用了 Claude 识别，在隐私指引中说明小票图片会提交给第三方识别服务。
 
 ## 本地开发与测试
 
@@ -131,7 +133,8 @@ npm run test:ui     # 页面冒烟测试：用 miniprogram-simulate 渲染每个
 
 测试内容：
 - `test/product|dates|receipt|stats.test.js`：商品规格解析与商品键、按周/月/年分段、小票清洗与分类分摊、统计与价格汇总
-- `test/ocrParser.test.js`：OCR 规则解析（澳洲超市小票、中文餐厅小票）
+- `test/ocrParser.test.js`：OCR 文字块按行合并、规则解析（澳洲超市小票、中文餐厅小票）
+- `test/parseReceipt.test.js`：识别云函数入口：默认引擎为微信 OCR、乱序文字块的行合并、OCR 失败提示、图片校验
 - `test/claude.test.js`：Claude 请求参数（模型、结构化输出、图片、备用模型）与错误处理（需先在 `cloudfunctions/parseReceipt` 下 `npm install`，否则跳过）
 - `test/api.test.js`：在内存数据库（`test/helpers/fake-cloud.js` 模拟 `wx-server-sdk`）上跑通完整流程：建家庭 → 保存小票 → 重复检测 → 筛选 → 统计 → 价格历史 → 合并商品 → 修改价格 → 家人加入/退出 → 删除
 - `test/ui/pages.sim.js`：渲染全部页面，并走通「拍照 → 识别 → 确认 → 保存」与「手动记一笔」
@@ -140,6 +143,6 @@ npm run test:ui     # 页面冒烟测试：用 miniprogram-simulate 渲染每个
 
 - **日期**以本地日期字符串 `YYYY-MM-DD` 存储与查询，周从周一开始。云函数服务器与用户（澳洲）不在同一时区，用字符串可避免时区偏差。
 - **分类统计**：一张超市小票通常包含多个分类，统计时按商品金额比例把小票**实付总额**分摊到各分类（折扣、附加费等差额按比例分摊），各分类之和始终等于实际支出。
-- **商品键（productKey）**：`规范化商品名|规格`，例如 `coca-cola-classic|2l`。Claude 识别时会把 `COKE CLASSIC 2LT`、`Coca Cola Classic 2L` 等写法规范成同一个商品名；仍然被识别成两个商品时，可以在商品详情页「与其他商品合并」，之后的小票会自动归入合并后的商品。
+- **商品键（productKey）**：`规范化商品名|规格`，例如 `coca-cola-classic|2l`。同一商品在不同超市写法不同（如 `COKE CLASSIC 2LT` 与 `Coca Cola Classic 2L`）时会被识别成两个商品，可以在商品详情页「与其他商品合并」，之后的小票会自动归入合并后的商品。启用 Claude 识别时会自动规范商品名，需要合并的情况更少。
 - **单位价格**：根据规格（`2L`、`24x375ml`、`500g`）或称重单位（`kg`）计算每升 / 每千克价格，方便比较不同规格。
 - 货币默认 AUD，可在 `miniprogram/config.js` 修改显示符号。

@@ -64,7 +64,7 @@ function fileSize(path) {
   });
 }
 
-/** 压缩到最长边 config.maxImageSide 以内、小于 4MB（Claude 单图上限 5MB） */
+/** 压缩到最长边 config.maxImageSide 以内、小于 2MB，满足 OCR 接口的图片大小要求 */
 async function prepareImage(src) {
   let path = src;
   try {
@@ -78,7 +78,8 @@ async function prepareImage(src) {
   } catch (e) {
     console.warn('getImageInfo failed', e);
   }
-  if ((await fileSize(path)) > 4 * 1024 * 1024) path = await compress(path, 1200);
+  if ((await fileSize(path)) > 2 * 1024 * 1024) path = await compress(path, 1400);
+  if ((await fileSize(path)) > 2 * 1024 * 1024) path = await compress(path, 1000);
   return path;
 }
 
