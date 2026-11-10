@@ -2,8 +2,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fake = require('./helpers/fake-cloud');
 
+const fakeDashscope = require('./helpers/fake-dashscope');
+
 fake.install();
 const fn = require('../cloudfunctions/parseReceipt/index');
+
+delete process.env.DASHSCOPE_API_KEY;
+delete process.env.RECEIPT_ENGINE;
 
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(100)]);
 
@@ -94,4 +99,113 @@ test('图片类型识别', () => {
   assert.equal(detectMediaType(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0])), 'image/png');
   assert.equal(detectMediaType(Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBP')])), 'image/webp');
   assert.equal(detectMediaType(Buffer.from('nope')), null);
+});
+
+// ===== 通义千问为主、微信 OCR 兜底 =====
+
+const QWEN_RESULT = {
+  isReceipt: true,
+  merchant: { name: 'Coles', branch: 'Burwood', address: '', type: 'supermarket' },
+  date: '2026-11-08', time: '10:01', currency: 'AUD',
+  subtotal: 9.2, tax: 0.84, discount: null, total: 9.2, paymentMethod: 'Visa', notes: '',
+  items: [
+    { name: 'COKE CLASSIC 2L', productName: 'Coca-Cola Classic', spec: '2L', quantity: 1, unit: 'each', unitPrice: 4.5, totalPrice: 4.5, discount: 0, category: 'beverages' },
+    // 分类不合法、缺少字段时由 sanitizeReceipt 兜底
+    { name: 'TIM TAM ORIG 200G', productName: 'Tim Tam Original', spec: '200g', quantity: 1, unit: 'each', unitPrice: 5.5, totalPrice: 4.7, discount: 0.8, category: '零食' }
+  ]
+};
+const OCR_ITEMS = { items: ['Coles', '08/11/2026 10:01', 'COKE CLASSIC 2L   4.50', 'TOTAL   4.50'].map((text) => ({ text })) };
+
+async function withQwen(run) {
+  const server = await fakeDashscope.start();
+  process.env.DASHSCOPE_BASE_URL = server.baseUrl;
+  process.env.DASHSCOPE_API_KEY = 'sk-test';
+  fake.reset();
+  fake.putFile('cloud://env/r.jpg', JPEG);
+  let ocrCalls = 0;
+  fake.sdk.openapi.ocr.printedText = async () => { ocrCalls++; return OCR_ITEMS; };
+  try {
+    await run(server, () => ocrCalls);
+  } finally {
+    delete process.env.DASHSCOPE_BASE_URL;
+    delete process.env.DASHSCOPE_API_KEY;
+    delete process.env.RECEIPT_ENGINE;
+    await server.close();
+  }
+}
+
+test('配置了 DASHSCOPE_API_KEY 时默认用通义千问，成功则不调用微信 OCR', async () => {
+  await withQwen(async (server, ocrCalls) => {
+    assert.equal(fn._internal.selectedEngine(), 'qwen');
+    server.reply = () => fakeDashscope.completion(JSON.stringify(QWEN_RESULT));
+    const res = await fn.main({ fileID: 'cloud://env/r.jpg', today: '2026-11-09' });
+    assert.equal(res.ok, true);
+    assert.equal(res.engine, 'qwen');
+    assert.equal(res.draft.source, 'qwen');
+    assert.equal(res.draft.merchant.branch, 'Burwood');
+    assert.equal(res.draft.items[0].productKey, 'coca-cola-classic|2l');
+    assert.equal(res.draft.items[1].category, 'snacks');
+    assert.equal(res.draft.items[1].discount, 0.8);
+    assert.equal(res.draft.total, 9.2);
+    assert.deepEqual(res.warnings, []);
+    assert.equal(ocrCalls(), 0);
+    assert.equal(server.requests.length, 1);
+  });
+});
+
+test('通义千问失败时改用微信 OCR，并在提示里说明', async () => {
+  await withQwen(async (server, ocrCalls) => {
+    server.reply = () => ({ status: 429, body: { error: { code: 'limit_requests', message: 'Too many requests' } } });
+    const res = await fn.main({ fileID: 'cloud://env/r.jpg', today: '2026-11-09' });
+    assert.equal(res.ok, true);
+    assert.equal(res.engine, 'wechat-ocr');
+    assert.equal(res.draft.source, 'wechat-ocr');
+    assert.equal(res.draft.total, 4.5);
+    assert.match(res.warnings[0], /AI 识别未成功（通义千问识别服务繁忙或额度不足），已改用微信 OCR/);
+    assert.equal(ocrCalls(), 1);
+
+    // 返回内容无法解析时同样兜底
+    server.reply = () => fakeDashscope.completion('抱歉，无法识别');
+    const res2 = await fn.main({ fileID: 'cloud://env/r.jpg' });
+    assert.equal(res2.engine, 'wechat-ocr');
+    assert.equal(ocrCalls(), 2);
+  });
+});
+
+test('通义千问和微信 OCR 都失败时返回两边的原因', async () => {
+  await withQwen(async (server) => {
+    server.reply = () => ({ status: 401, body: { error: { code: 'invalid_api_key', message: 'bad key' } } });
+    fake.sdk.openapi.ocr.printedText = async () => { throw Object.assign(new Error('x'), { errCode: 101003 }); };
+    const res = await fn.main({ fileID: 'cloud://env/r.jpg' });
+    assert.equal(res.ok, false);
+    assert.equal(res.code, 'OCR_FAILED');
+    assert.match(res.message, /DASHSCOPE_API_KEY/);
+    assert.match(res.message, /改用微信 OCR 也未成功/);
+    assert.match(res.message, /101003/);
+  });
+});
+
+test('通义千问判断不是小票时直接提示，不再兜底', async () => {
+  await withQwen(async (server, ocrCalls) => {
+    server.reply = () => fakeDashscope.completion(JSON.stringify(Object.assign({}, QWEN_RESULT, { isReceipt: false, items: [], total: null })));
+    const res = await fn.main({ fileID: 'cloud://env/r.jpg' });
+    assert.equal(res.code, 'NOT_RECEIPT');
+    assert.equal(ocrCalls(), 0);
+  });
+});
+
+test('RECEIPT_ENGINE 可强制指定引擎', async () => {
+  await withQwen(async (server, ocrCalls) => {
+    process.env.RECEIPT_ENGINE = 'wechat-ocr';
+    assert.equal(fn._internal.selectedEngine(), 'wechat-ocr');
+    const res = await fn.main({ fileID: 'cloud://env/r.jpg' });
+    assert.equal(res.engine, 'wechat-ocr');
+    assert.deepEqual(res.warnings.filter((w) => /AI 识别/.test(w)), []);
+    assert.equal(server.requests.length, 0);
+    assert.equal(ocrCalls(), 1);
+
+    process.env.RECEIPT_ENGINE = 'qwen';
+    delete process.env.DASHSCOPE_API_KEY;
+    assert.equal((await fn.main({ fileID: 'cloud://env/r.jpg' })).code, 'CONFIG');
+  });
 });

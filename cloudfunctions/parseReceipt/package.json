@@ -1,7 +1,7 @@
 {
   "name": "parseReceipt",
   "version": "1.0.0",
-  "description": "Receipt Box: 识别小票照片（Claude 视觉 / 微信 OCR）",
+  "description": "Receipt Box: 识别小票照片（通义千问 Qwen-VL-OCR / 微信 OCR / Claude）",
   "main": "index.js",
   "private": true,
   "engines": {

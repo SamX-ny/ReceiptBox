@@ -14,7 +14,7 @@
 | --- | --- |
 | 前端 | 原生微信小程序（WXML / WXSS / JS），支持深色模式；图表为自绘 Canvas 2D 组件，无第三方依赖 |
 | 后端 | 微信云开发：云数据库 + 云存储 + 云函数（`api`、`parseReceipt`） |
-| 小票识别 | 默认使用 **微信 OCR 通用印刷体识别 + 按行合并 + 规则解析**；可选切换为 Claude 视觉模型（`claude-opus-5-5`，结构化输出），商品名规范化更好 |
+| 小票识别 | **通义千问 Qwen-VL-OCR**（阿里云百炼，多模态 OCR 大模型）直接从照片解析出商户、商品、分类与规范化商品名；失败时自动改用 **微信 OCR 通用印刷体识别 + 规则解析**。也可切换为 Claude |
 
 ```
 小程序                       云函数                          外部服务
@@ -22,8 +22,8 @@
 │ 拍照 / 相册     │ ────────▶ │  云存储        │
 │ 识别页          │           └──────┬───────┘
 │                │  fileID   ┌──────▼───────┐  图片  ┌──────────────┐
-│                │ ────────▶ │ parseReceipt │ ─────▶ │ 微信 OCR      │
-│ 确认 / 编辑页    │ ◀──草稿── │（不写库）      │ ◀文字─ │ (可选 Claude) │
+│                │ ────────▶ │ parseReceipt │ ─────▶ │ 通义千问 OCR  │
+│ 确认 / 编辑页    │ ◀──草稿── │（不写库）      │ ◀JSON─ │ (兜底微信OCR) │
 │                │           └──────────────┘        └──────────────┘
 │                │  保存     ┌──────────────┐
 │ 首页 / 账单 /    │ ────────▶ │     api      │──▶ receipts / priceRecords / families …
@@ -58,7 +58,7 @@ ReceiptBox/
 │   └── utils/
 ├── cloudfunctions/
 │   ├── api/                   # 业务接口：家庭、小票增删改查、统计、价格追踪
-│   └── parseReceipt/          # 小票识别：微信 OCR（默认）/ Claude 视觉（可选）
+│   └── parseReceipt/          # 小票识别：通义千问 Qwen-VL-OCR（主）/ 微信 OCR（兜底）/ Claude（可选）
 ├── shared/                    # 前后端共用逻辑的源文件（分类、商品规格归一化、日期、统计）
 ├── scripts/sync-shared.js     # 把 shared/ 复制到小程序与云函数目录
 └── test/                      # 单元测试、云函数集成测试、页面冒烟测试
@@ -90,37 +90,55 @@ ReceiptBox/
 
 在开发者工具中，右键 `cloudfunctions/api` 和 `cloudfunctions/parseReceipt`，选择「**上传并部署：云端安装依赖**」。
 
-- 运行环境请选择 **Node.js 18 或更高**（`parseReceipt` 依赖的 Anthropic SDK 需要 Node 18+）。
+- 运行环境建议选择 **Node.js 18 或更高**（只有启用 Claude 识别时才是必须的）。
 - `parseReceipt` 的超时时间已在 `config.json` 中设为 60 秒，`api` 为 20 秒。
 
 ### 4. 配置小票识别
 
-**默认：微信 OCR（不用改代码，只需开通服务）**
+识别由云函数 `parseReceipt` 完成：**通义千问 Qwen-VL-OCR 为主，微信 OCR 兜底**。
 
-在 [微信服务市场](https://fuwu.weixin.qq.com/) 为小程序开通「OCR 识别 / 通用印刷体识别」服务即可（有免费额度与付费档，以开通页面为准）。云函数 `parseReceipt` 的 `config.json` 已声明 `ocr.printedText` 权限。
+| 情况 | 使用的引擎 |
+| --- | --- |
+| 配置了 `DASHSCOPE_API_KEY` | 通义千问 Qwen-VL-OCR；失败时自动改用微信 OCR |
+| 没有配置 | 只用微信 OCR |
 
-识别流程：OCR 返回的文字块先**按坐标合并成行**（小票上左侧商品名与右侧价格常被识别成两块），再用规则解析出商户、日期时间、商品、折扣、GST、合计与支付方式。能处理常见的澳洲超市小票格式：称重商品（`0.856 kg NET @ $3.90/kg`）、多件（`2 @ $1.50 each`）、`Less Promotion` 等折扣行。商品会按关键词自动分类。
+**第一步：开通微信 OCR（兜底，建议一定开通）**
 
-局限：商品名按小票原文保存，不做规范化，所以不同超市对同一商品的写法不同时，会被当成两个商品——可以在商品详情页「与其他商品合并」，之后自动归并。识别结果请在确认页核对。
+在 [微信服务市场](https://fuwu.weixin.qq.com/) 为小程序开通「OCR 识别 / 通用印刷体识别」服务（每天有免费额度，以开通页面为准）。云函数的 `config.json` 已声明 `ocr.printedText` 权限。
 
-**可选：Claude 视觉识别**
+**第二步：配置通义千问（主识别）**
 
-识别更准、能把不同写法的商品名规范成同一个（跨商店比价更好用）。在云开发控制台 → 云函数 → `parseReceipt` → 函数配置 → 环境变量中添加：
+1. 在 [阿里云百炼](https://bailian.console.aliyun.com/) 开通模型服务，创建一个 API Key。
+2. 在云开发控制台 → 云函数 → `parseReceipt` → 函数配置 → 环境变量中添加：
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
-| `RECEIPT_ENGINE` | ✅ | 设为 `claude`（不设置或其他值都使用微信 OCR） |
-| `ANTHROPIC_API_KEY` | ✅ | Claude API Key（在 [Claude Console](https://platform.claude.com/) 创建） |
-| `ANTHROPIC_BASE_URL` | | API 地址。如果云函数所在网络无法访问 `api.anthropic.com`，填你自己的转发网关地址 |
-| `RECEIPT_CLAUDE_MODEL` | | 默认 `claude-opus-5-5` |
-| `RECEIPT_CLAUDE_EFFORT` | | `low` / `medium` / `high`，默认 `low`（云函数单次最长 60 秒） |
+| `DASHSCOPE_API_KEY` | ✅ | 百炼 API Key |
+| `DASHSCOPE_BASE_URL` | | 默认北京地域 `https://dashscope.aliyuncs.com/compatible-mode/v1`。使用国际站（新加坡）的 Key 时，改成百炼控制台给出的兼容模式地址 |
+| `RECEIPT_QWEN_MODEL` | | 默认 `qwen-vl-ocr` |
+| `RECEIPT_QWEN_MAX_TOKENS` | | 输出上限。不设置时用模型默认值（4096）；向百炼申请提额后可设为 8192 |
+| `RECEIPT_ENGINE` | | 一般不用设置。可强制为 `qwen` / `wechat-ocr` / `claude` |
 
-启用 Claude 后，小票照片会发送给 Anthropic 进行识别，请在小程序的隐私说明中告知用户。
+说明：
+- Qwen-VL-OCR 是多模态 OCR 大模型，直接看图输出商户、日期、商品（名称、规格、数量、单价、折扣）、分类和金额，并把商品名规范化（如 `COKE CLASSIC 2LT` → `Coca-Cola Classic`），跨商店比价更准。
+- 费用按 token 计：北京地域约输入 0.3 元、输出 0.5 元 / 百万 token，一张小票约 0.002～0.003 元（估算，以百炼账单为准）。
+- **兜底**：通义千问超时（40 秒）、额度不足、Key 无效、返回内容无法解析时，自动改用微信 OCR，确认页顶部会提示「AI 识别未成功…已改用微信 OCR」。
+- **超长小票**：模型输出默认最多 4096 token（大约 50 个商品）。超出时保留已识别完整的商品，并提示核对补全。
+- 模型返回的分类不在预设范围内、或缺少字段时，会按商品名关键词自动补全分类。
+- 小票照片会发送给阿里云百炼进行识别，请在小程序的隐私说明中告知用户。
+
+**微信 OCR 的识别方式**
+
+OCR 返回的文字块先按坐标合并成行（小票上左侧商品名与右侧价格常被识别成两块），再用规则解析出商户、日期时间、商品、折扣、GST、合计与支付方式。能处理常见的澳洲超市小票格式：称重商品（`0.856 kg NET @ $3.90/kg`）、多件（`2 @ $1.50 each`）、`Less Promotion` 等折扣行。商品名按小票原文保存，不做规范化。
+
+**可选：Claude 视觉识别**
+
+把 `RECEIPT_ENGINE` 设为 `claude` 并配置 `ANTHROPIC_API_KEY` 即可（失败时同样改用微信 OCR）。其他变量：`ANTHROPIC_BASE_URL`（云函数所在网络无法访问 `api.anthropic.com` 时填转发网关地址）、`RECEIPT_CLAUDE_MODEL`（默认 `claude-opus-5-5`）、`RECEIPT_CLAUDE_EFFORT`（默认 `low`）。使用 Claude 时云函数运行环境需 Node.js 18 或更高。
 
 ### 5. 隐私与上线
 
 - 在小程序管理后台「设置 → 服务内容声明 → 用户隐私保护指引」中声明使用了**摄像头**、**选中的照片**（用于拍摄/选择小票），否则 `wx.chooseMedia` 会被拦截。
-- 若启用了 Claude 识别，在隐私指引中说明小票图片会提交给第三方识别服务。
+- 配置了通义千问（或 Claude）时，在隐私指引中说明小票图片会提交给第三方识别服务。
 
 ## 本地开发与测试
 
@@ -134,7 +152,8 @@ npm run test:ui     # 页面冒烟测试：用 miniprogram-simulate 渲染每个
 测试内容：
 - `test/product|dates|receipt|stats.test.js`：商品规格解析与商品键、按周/月/年分段、小票清洗与分类分摊、统计与价格汇总
 - `test/ocrParser.test.js`：OCR 文字块按行合并、规则解析（澳洲超市小票、中文餐厅小票）
-- `test/parseReceipt.test.js`：识别云函数入口：默认引擎为微信 OCR、乱序文字块的行合并、OCR 失败提示、图片校验
+- `test/qwen.test.js`：通义千问请求与解析（本地模拟百炼接口）：请求格式、代码块与截断输出的容错、鉴权/限流/超时等错误
+- `test/parseReceipt.test.js`：识别云函数入口：引擎选择、通义千问失败后改用微信 OCR、乱序文字块的行合并、图片校验
 - `test/claude.test.js`：Claude 请求参数（模型、结构化输出、图片、备用模型）与错误处理（需先在 `cloudfunctions/parseReceipt` 下 `npm install`，否则跳过）
 - `test/api.test.js`：在内存数据库（`test/helpers/fake-cloud.js` 模拟 `wx-server-sdk`）上跑通完整流程：建家庭 → 保存小票 → 重复检测 → 筛选 → 统计 → 价格历史 → 合并商品 → 修改价格 → 家人加入/退出 → 删除
 - `test/ui/pages.sim.js`：渲染全部页面，并走通「拍照 → 识别 → 确认 → 保存」与「手动记一笔」
@@ -143,6 +162,6 @@ npm run test:ui     # 页面冒烟测试：用 miniprogram-simulate 渲染每个
 
 - **日期**以本地日期字符串 `YYYY-MM-DD` 存储与查询，周从周一开始。云函数服务器与用户（澳洲）不在同一时区，用字符串可避免时区偏差。
 - **分类统计**：一张超市小票通常包含多个分类，统计时按商品金额比例把小票**实付总额**分摊到各分类（折扣、附加费等差额按比例分摊），各分类之和始终等于实际支出。
-- **商品键（productKey）**：`规范化商品名|规格`，例如 `coca-cola-classic|2l`。同一商品在不同超市写法不同（如 `COKE CLASSIC 2LT` 与 `Coca Cola Classic 2L`）时会被识别成两个商品，可以在商品详情页「与其他商品合并」，之后的小票会自动归入合并后的商品。启用 Claude 识别时会自动规范商品名，需要合并的情况更少。
+- **商品键（productKey）**：`规范化商品名|规格`，例如 `coca-cola-classic|2l`。通义千问识别时会把 `COKE CLASSIC 2LT`、`Coca Cola Classic 2L` 等写法规范成同一个商品名；仍然被识别成两个商品时（或改用微信 OCR 识别的小票），可以在商品详情页「与其他商品合并」，之后的小票会自动归入合并后的商品。
 - **单位价格**：根据规格（`2L`、`24x375ml`、`500g`）或称重单位（`kg`）计算每升 / 每千克价格，方便比较不同规格。
 - 货币默认 AUD，可在 `miniprogram/config.js` 修改显示符号。

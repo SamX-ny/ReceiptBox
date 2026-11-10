@@ -55,6 +55,7 @@ Page({
     saving: false,
     warnings: [],
     engine: '',
+    engineHint: '点击查看原图',
     imageFileID: '',
     imageUrl: '',
     source: 'manual',
@@ -83,7 +84,14 @@ Page({
 
   onLoad(query) {
     const mode = query.mode || 'create';
-    this.setData({ mode: mode, id: query.id || '', engine: query.engine || '' });
+    const engine = query.engine || '';
+    this.setData({
+      mode: mode,
+      id: query.id || '',
+      engine: engine,
+      engineHint: engine === 'qwen' || engine === 'claude' ? 'AI 识别结果，请核对后保存'
+        : engine === 'wechat-ocr' ? 'OCR 规则识别，建议仔细核对' : '点击查看原图'
+    });
     wx.setNavigationBarTitle({ title: mode === 'edit' ? '编辑小票' : mode === 'manual' ? '记一笔' : '确认小票' });
 
     if (mode === 'edit') {

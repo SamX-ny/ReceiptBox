@@ -60,7 +60,7 @@ Page({
           paymentMethod: r.paymentMethod,
           note: r.note,
           createdByName: r.createdByName,
-          source: r.source === 'claude' ? 'AI 识别' : r.source === 'wechat-ocr' ? 'OCR 识别' : '手动录入',
+          source: r.source === 'qwen' || r.source === 'claude' ? 'AI 识别' : r.source === 'wechat-ocr' ? 'OCR 识别' : '手动录入',
           category: format.category(r.category),
           groups: catGroups,
           itemCount: (r.items || []).length

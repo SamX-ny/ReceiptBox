@@ -157,6 +157,27 @@ async function api(action, params) {
   console.log('save nav:', log.nav, 'toasts:', log.toast.slice(-3));
   results.push(log.nav.some((u) => /receipt-detail/.test(u)));
 
+  // —— 配置通义千问后：拍照 → Qwen 识别 → 确认页显示 AI 识别结果 ——
+  const dashscope = await require(path.join(ROOT, 'test/helpers/fake-dashscope')).start();
+  process.env.DASHSCOPE_BASE_URL = dashscope.baseUrl;
+  process.env.DASHSCOPE_API_KEY = 'sk-test';
+  dashscope.reply = () => require(path.join(ROOT, 'test/helpers/fake-dashscope')).completion(JSON.stringify({
+    isReceipt: true, merchant: { name: 'Harris Farm Markets', branch: 'Leichhardt', address: '', type: 'grocer' },
+    date: today, time: '09:15', currency: 'AUD', subtotal: 7.4, tax: null, discount: null, total: 7.4, paymentMethod: 'Visa', notes: '',
+    items: [{ name: 'AVOCADO HASS', productName: 'Avocado Hass', spec: '', quantity: 2, unit: 'each', unitPrice: 3.7, totalPrice: 7.4, discount: 0, category: 'produce' }]
+  }));
+  log.nav = [];
+  await renderPage('pages/scan/index', { path: encodeURIComponent('/tmp/y.jpg') });
+  await simulate.sleep(80);
+  console.log('\nqwen scan nav:', log.nav);
+  results.push(log.nav.some((u) => /engine=qwen/.test(u)));
+  const aiEdit = await renderPage('pages/receipt-edit/index', { mode: 'create', engine: 'qwen' });
+  results.push(check('确认 receipt-edit (Qwen)', aiEdit, ['AI 识别结果，请核对后保存', '合计 $7.40', '果蔬']));
+  results.push(aiEdit.instance.data.form.merchantName === 'Harris Farm Markets' && aiEdit.instance.data.items[0].quantity === '2');
+  delete process.env.DASHSCOPE_API_KEY;
+  delete process.env.DASHSCOPE_BASE_URL;
+  await dashscope.close();
+
   // manual mode: add item then save
   const manual = await renderPage('pages/receipt-edit/index', { mode: 'manual' });
   manual.instance.onInput({ currentTarget: { dataset: { field: 'merchantName' } }, detail: { value: 'Harris Farm' } });

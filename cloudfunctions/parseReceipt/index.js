@@ -4,9 +4,14 @@
  * 入参：{ fileID: 'cloud://...' }
  * 返回：{ ok: true, draft, warnings, engine } 或 { ok: false, code, message }
  *
- * 识别引擎（云函数环境变量 RECEIPT_ENGINE）：
- *   - 未设置或 wechat-ocr（默认）：微信 OCR 通用印刷体识别 + 规则解析（需在微信服务市场开通 OCR 服务）
- *   - claude：Claude 视觉模型，能规范化商品名、跨商店比价更准（需同时配置 ANTHROPIC_API_KEY）
+ * 识别引擎（云函数环境变量 RECEIPT_ENGINE，一般不用设置）：
+ *   - 未设置：配置了 DASHSCOPE_API_KEY 就用通义千问 Qwen-VL-OCR，否则用微信 OCR
+ *   - qwen：通义千问 Qwen-VL-OCR（多模态 OCR 大模型，需 DASHSCOPE_API_KEY）
+ *   - claude：Claude 视觉模型（需 ANTHROPIC_API_KEY）
+ *   - wechat-ocr：只用微信 OCR 通用印刷体识别 + 规则解析
+ *
+ * 兜底：qwen / claude 识别失败（超时、额度不足、结果无法解析等）时，自动改用微信 OCR，
+ * 并在返回的 warnings 里说明，让用户在确认页仔细核对。
  */
 
 const cloud = require('wx-server-sdk');
@@ -23,6 +28,13 @@ function detectMediaType(buf) {
   if (buf.length >= 12 && buf.slice(0, 4).toString() === 'RIFF' && buf.slice(8, 12).toString() === 'WEBP') return 'image/webp';
   if (buf.length > 6 && buf.slice(0, 3).toString() === 'GIF') return 'image/gif';
   return null;
+}
+
+async function recognizeWithQwen(buffer, mediaType) {
+  const qwen = require('./lib/qwen');
+  const result = await qwen.parseReceiptImage(buffer, mediaType);
+  console.log('qwen usage', result.model, JSON.stringify(result.usage), result.truncated ? 'truncated' : '');
+  return { data: result.data, engine: 'qwen' };
 }
 
 async function recognizeWithClaude(buffer, mediaType) {
@@ -55,11 +67,54 @@ async function recognizeWithWechatOcr(buffer, mediaType) {
   return { data: ocrParser.parseLines(lines), engine: 'wechat-ocr' };
 }
 
+const AI_ENGINES = {
+  qwen: { run: recognizeWithQwen, keyEnv: 'DASHSCOPE_API_KEY', label: '通义千问' },
+  claude: { run: recognizeWithClaude, keyEnv: 'ANTHROPIC_API_KEY', label: 'Claude' }
+};
+
+// 云函数最长 60 秒。AI 识别失败后，剩余时间不足以再跑一次微信 OCR 时就不再兜底
+const FUNCTION_BUDGET_MS = 58 * 1000;
+const OCR_RESERVE_MS = 8 * 1000;
+
 function selectedEngine() {
-  return String(process.env.RECEIPT_ENGINE || '').trim().toLowerCase() === 'claude' ? 'claude' : 'wechat-ocr';
+  const v = String(process.env.RECEIPT_ENGINE || '').trim().toLowerCase();
+  if (v === 'qwen' || v === 'claude' || v === 'wechat-ocr') return v;
+  return process.env.DASHSCOPE_API_KEY ? 'qwen' : 'wechat-ocr';
+}
+
+/**
+ * 按所选引擎识别；AI 引擎失败时改用微信 OCR。
+ * 返回 { data, engine, fallbackFrom?, fallbackReason? }，全部失败时抛出带 code 的错误。
+ */
+async function recognize(buffer, mediaType, startedAt) {
+  const engine = selectedEngine();
+  const ai = AI_ENGINES[engine];
+  if (!ai) return recognizeWithWechatOcr(buffer, mediaType);
+
+  if (!process.env[ai.keyEnv]) {
+    throw Object.assign(new Error('已选择 ' + ai.label + ' 识别，但未配置 ' + ai.keyEnv), { code: 'CONFIG' });
+  }
+  let aiError;
+  try {
+    return await ai.run(buffer, mediaType);
+  } catch (err) {
+    aiError = err;
+    console.error(engine + ' failed, falling back to wechat ocr', err);
+  }
+  const reason = aiError.code && aiError.message ? aiError.message : ai.label + ' 识别失败';
+  if (Date.now() - startedAt > FUNCTION_BUDGET_MS - OCR_RESERVE_MS) {
+    throw Object.assign(new Error(reason + '，请重试或手动录入'), { code: aiError.code || 'RECOGNIZE_FAILED' });
+  }
+  try {
+    const result = await recognizeWithWechatOcr(buffer, mediaType);
+    return Object.assign(result, { fallbackFrom: engine, fallbackReason: reason });
+  } catch (ocrErr) {
+    throw Object.assign(new Error(reason + '；改用微信 OCR 也未成功：' + ocrErr.message), { code: ocrErr.code || 'RECOGNIZE_FAILED' });
+  }
 }
 
 exports.main = async function (event) {
+  const startedAt = Date.now();
   const fileID = event && event.fileID;
   if (!fileID || typeof fileID !== 'string' || fileID.indexOf('cloud://') !== 0) {
     return { ok: false, code: 'INVALID_ARGUMENT', message: '缺少小票图片' };
@@ -83,21 +138,15 @@ exports.main = async function (event) {
 
   let recognized;
   try {
-    if (selectedEngine() === 'claude') {
-      if (!process.env.ANTHROPIC_API_KEY) {
-        return { ok: false, code: 'CONFIG', message: '已选择 Claude 识别，但未配置 ANTHROPIC_API_KEY' };
-      }
-      recognized = await recognizeWithClaude(buffer, mediaType);
-    } else {
-      recognized = await recognizeWithWechatOcr(buffer, mediaType);
-    }
+    recognized = await recognize(buffer, mediaType, startedAt);
   } catch (err) {
     console.error('recognize failed', err);
     return { ok: false, code: err.code || 'RECOGNIZE_FAILED', message: err.code && err.message ? err.message : '识别失败，请重试或手动录入' };
   }
 
   const data = recognized.data || {};
-  if (data.isReceipt === false) {
+  const hasContent = (Array.isArray(data.items) && data.items.length > 0) || Number(data.total) > 0;
+  if (data.isReceipt === false && !hasContent) {
     return { ok: false, code: 'NOT_RECEIPT', message: '这张图片看起来不是小票，请重新拍摄' };
   }
 
@@ -106,7 +155,11 @@ exports.main = async function (event) {
     source: recognized.engine
   }), { defaultDate: event.today });
 
-  const warnings = sanitized.warnings.slice();
+  const warnings = [];
+  if (recognized.fallbackFrom) {
+    warnings.push('AI 识别未成功（' + recognized.fallbackReason + '），已改用微信 OCR，请仔细核对');
+  }
+  sanitized.warnings.forEach(function (w) { warnings.push(w); });
   if (data.notes) warnings.push(String(data.notes).slice(0, 200));
 
   return {

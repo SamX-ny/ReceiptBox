@@ -93,8 +93,45 @@ const SYSTEM_PROMPT = [
 
 const USER_PROMPT = '请识别这张小票，按要求输出 JSON。Read this receipt and return the JSON.';
 
+/**
+ * 通义千问 Qwen-VL-OCR 的提示词。
+ * 该模型不接受自定义 System Message，也没有 JSON Schema 约束，所以把规则和输出格式都写在这一条里。
+ * items 必须放在最后：输出上限较小，超长小票被截断时仍能保留前面已完整输出的商品。
+ */
+const QWEN_PROMPT = [
+  '请识别图片中的购物或餐饮小票，只输出一个合法的 JSON 对象。',
+  '要求：紧凑的单行 JSON，不要换行缩进，不要 Markdown 代码块，不要任何解释文字。',
+  '图片中没有或看不清的内容：字符串填 ""，数字填 null。不要编造图片里没有的商品和价格。',
+  '',
+  '输出格式（字段名和顺序必须一致，items 放在最后）：',
+  '{"isReceipt":true,"merchant":{"name":"","branch":"","address":"","type":""},"date":"YYYY-MM-DD","time":"HH:mm","currency":"AUD","subtotal":null,"tax":null,"discount":null,"total":null,"paymentMethod":"","notes":"","items":[{"name":"","productName":"","spec":"","quantity":1,"unit":"each","unitPrice":0,"totalPrice":0,"discount":0,"category":""}]}',
+  '',
+  '字段说明：',
+  '- isReceipt：图片是小票或发票为 true，否则为 false（此时其他字段留空）。',
+  '- merchant.name：商户品牌名，如 Woolworths、Coles、ALDI；branch：门店名，如 Chatswood。',
+  '- merchant.type 只能取：' + categories.MERCHANT_TYPES.map(function (m) { return m.id + '（' + m.name + '）'; }).join('、') + '。',
+  '- date：YYYY-MM-DD。澳洲小票的日期写法是 日/月/年。time：24 小时制 HH:mm。',
+  '- currency：货币代码，如 AUD、CNY。',
+  '- tax：小票上打印的 GST 税额（价格已含税，不要加到总额里）。total：实际支付的金额。',
+  '- paymentMethod：如 EFTPOS、Visa、Mastercard、Cash。',
+  '- notes：看不清或不确定的地方，没有则为 ""。',
+  '',
+  'items 中每个商品：',
+  '- name：小票上打印的原文，如 "WW CHIPS ORIG 175G"。',
+  '- productName：规范、稳定的商品名，不含规格和促销字样，缩写展开、品牌写全，如 "Woolworths Original Potato Chips"、"Coca-Cola Classic"、"Bananas Cavendish"。同一种商品无论哪家店打印，productName 都应相同。中文商品名保持中文。',
+  '- spec：包装规格，如 2L、375ml、24x375ml、500g、12pk；称重商品或没有规格填 ""。',
+  '- quantity / unit / unitPrice：数量、单位、折扣前单价。unit 只能取 each、kg、g、L、ml。',
+  '  "0.856 kg NET @ $3.90/kg" 这样的行属于它上面的商品：quantity 0.856，unit "kg"，unitPrice 3.90。',
+  '  "2 @ $1.50 each" 或 "QTY 2" 这样的行属于它上面的商品：quantity 2，unitPrice 1.50。',
+  '- discount / totalPrice：Less、Saving、Discount、Promotion、Member Price 或负数金额的行，是它上面商品的折扣：折扣金额（正数）填 discount，totalPrice 填扣除折扣后该商品的实付金额。',
+  '- 信用卡附加费、配送费、服务费、小费单独作为一个商品，category 填 other。',
+  '- 忽略刷卡终端信息、会员积分、条形码和广告语。',
+  '- category 只能取：' + categories.CATEGORIES.map(function (c) { return c.id + '（' + c.name + '）'; }).join('、') + '。餐厅堂食的菜品和饮料用 dining。'
+].join('\n');
+
 module.exports = {
   RECEIPT_SCHEMA: RECEIPT_SCHEMA,
+  QWEN_PROMPT: QWEN_PROMPT,
   SYSTEM_PROMPT: SYSTEM_PROMPT,
   USER_PROMPT: USER_PROMPT
 };
