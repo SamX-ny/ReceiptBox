@@ -2,7 +2,7 @@
  * 小票增删改查。保存小票时同步生成 priceRecords（每个商品一行）用于价格追踪。
  */
 
-const { cloud, db, _, AppError, fetchAll, inChunks, escapeRegExp } = require('./db');
+const { cloud, db, _, AppError, fetchAll, inChunks, escapeRegExp, isNotFound } = require('./db');
 const receiptLib = require('../shared/receipt');
 const dates = require('../shared/dates');
 const categories = require('../shared/categories');
@@ -43,6 +43,7 @@ async function getOwned(ctx, id) {
   try {
     doc = (await db.collection('receipts').doc(id).get()).data;
   } catch (err) {
+    if (!isNotFound(err)) throw err;
     throw new AppError('NOT_FOUND', '小票不存在或已删除');
   }
   if (!doc || doc.familyId !== ctx.family._id) throw new AppError('NOT_FOUND', '小票不存在或已删除');

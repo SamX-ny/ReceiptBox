@@ -11,7 +11,7 @@ const cloud = require('wx-server-sdk');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
-const { AppError } = require('./lib/db');
+const { AppError, COLLECTIONS, ensureCollections, isCollectionMissing } = require('./lib/db');
 const user = require('./lib/user');
 
 const ACTIONS = Object.assign(
@@ -32,6 +32,7 @@ exports.main = async function (event) {
   if (!openid) return { ok: false, code: 'UNAUTHENTICATED', message: '请在小程序内使用' };
 
   try {
+    await ensureCollections();
     const session = await user.ensureUser(openid);
     const ctx = { openid: openid, user: session.user, family: session.family };
     const data = await handler(ctx, event.params || {});
@@ -39,6 +40,13 @@ exports.main = async function (event) {
   } catch (err) {
     if (err instanceof AppError) return { ok: false, code: err.code, message: err.message };
     console.error('api error', action, err);
+    if (isCollectionMissing(err)) {
+      return {
+        ok: false,
+        code: 'DB_NOT_READY',
+        message: '数据库集合未能自动创建，请在云开发控制台手动创建：' + COLLECTIONS.join('、')
+      };
+    }
     return { ok: false, code: 'INTERNAL', message: '服务器开小差了，请稍后再试' };
   }
 };

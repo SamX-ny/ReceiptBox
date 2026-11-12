@@ -74,17 +74,21 @@ ReceiptBox/
 2. 用 [微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html) 导入本仓库根目录。
 3. 点击工具栏「云开发」开通云开发环境，把**环境 ID** 填入 `miniprogram/config.js` 的 `envId`。
 
-### 2. 创建数据库集合
+### 2. 数据库集合（自动创建）
 
-在云开发控制台 → 数据库中创建以下集合，**权限均设为「仅管理端可读写」**（所有读写都经过云函数，并按家庭校验权限）：
+**不需要手动建表**：云函数 `api` 第一次运行时（也就是第一次打开小程序时）会自动创建下面 5 个集合，已存在的不会受影响。
 
-| 集合 | 说明 | 建议索引 |
+| 集合 | 说明 | 建议索引（可选） |
 | --- | --- | --- |
 | `users` | 用户（`_id` 为 openid）与所属家庭 | — |
 | `families` | 家庭、成员、邀请码 | `inviteCode` |
 | `receipts` | 小票 | `familyId + date(降序)`、`familyId + categories` |
 | `priceRecords` | 商品价格记录（每个商品一行） | `familyId + productKey + date`、`familyId + date`、`receiptId` |
 | `productAliases` | 用户合并过的商品别名 | `familyId` |
+
+- **权限**：所有读写都经过云函数，并按家庭校验权限；数据由云函数写入，小程序端不直接访问数据库。建议在云开发控制台 → 数据库里，把这 5 个集合的「数据权限」都改成「所有用户不可读写」（旧版控制台叫「仅管理端可读写」）。
+- **索引**：数据量小的时候不需要，以后觉得查询变慢再到集合的「索引管理」里添加。
+- 如果小程序提示「数据库集合未能自动创建」，说明自动创建失败，请按上表在控制台手动新建这 5 个集合。
 
 ### 3. 部署云函数
 
@@ -155,7 +159,7 @@ npm run test:ui     # 页面冒烟测试：用 miniprogram-simulate 渲染每个
 - `test/qwen.test.js`：通义千问请求与解析（本地模拟百炼接口）：请求格式、代码块与截断输出的容错、鉴权/限流/超时等错误
 - `test/parseReceipt.test.js`：识别云函数入口：引擎选择、通义千问失败后改用微信 OCR、乱序文字块的行合并、图片校验
 - `test/claude.test.js`：Claude 请求参数（模型、结构化输出、图片、备用模型）与错误处理（需先在 `cloudfunctions/parseReceipt` 下 `npm install`，否则跳过）
-- `test/api.test.js`：在内存数据库（`test/helpers/fake-cloud.js` 模拟 `wx-server-sdk`）上跑通完整流程：建家庭 → 保存小票 → 重复检测 → 筛选 → 统计 → 价格历史 → 合并商品 → 修改价格 → 家人加入/退出 → 删除
+- `test/api.test.js`：在内存数据库（`test/helpers/fake-cloud.js` 模拟 `wx-server-sdk`）上跑通完整流程：首次运行自动建集合 → 建家庭 → 保存小票 → 重复检测 → 筛选 → 统计 → 价格历史 → 合并商品 → 修改价格 → 家人加入/退出 → 删除
 - `test/ui/pages.sim.js`：渲染全部页面，并走通「拍照 → 识别 → 确认 → 保存」与「手动记一笔」
 
 ## 数据说明

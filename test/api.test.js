@@ -7,6 +7,7 @@ const fake = require('./helpers/fake-cloud');
 
 fake.install();
 const api = require('../cloudfunctions/api/index');
+const dbLib = require('../cloudfunctions/api/lib/db');
 
 async function call(user, action, params) {
   fake.setOpenid(user);
@@ -159,4 +160,56 @@ test('参数校验与错误', async () => {
   await assert.rejects(call('A', 'family.leave'), (e) => e.code === 'INVALID_ARGUMENT');
   const res = await api.main({ action: 'nope' });
   assert.equal(res.code, 'UNKNOWN_ACTION');
+});
+
+// ===== 首次运行自动创建集合 =====
+
+function freshStrictDb() {
+  fake.reset();
+  fake.setStrict(true);
+  dbLib.resetCollectionsCheck(); // 模拟新的云函数实例（冷启动）
+}
+
+test('首次运行自动创建全部集合，之后同一实例不再重复创建', async () => {
+  freshStrictDb();
+  assert.deepEqual(fake.collectionNames(), []);
+  const login = await call('A', 'user.login');
+  assert.equal(login.family.isPersonal, true);
+  assert.deepEqual(fake.collectionNames(), ['families', 'priceRecords', 'productAliases', 'receipts', 'users']);
+  assert.equal(fake.createCollectionCalls(), 5);
+
+  // 全流程在严格模式下可用
+  const r = await call('A', 'receipt.create', { receipt: receipt('Coles', '2026-11-03', [coke(4.5)]) });
+  assert.ok(r._id);
+  assert.equal((await call('A', 'product.list', {})).list.length, 1);
+  assert.equal((await call('A', 'stats.summary', { type: 'month', date: '2026-11-03' })).total, 4.5);
+  assert.equal(fake.createCollectionCalls(), 5, '同一实例只检查一次');
+});
+
+test('部分集合已存在时只补建缺少的，已有数据不受影响', async () => {
+  freshStrictDb();
+  await fake.sdk.database().createCollection('users');
+  await fake.sdk.database().collection('users').add({ data: { _id: 'keep', familyId: 'x' } });
+  await call('A', 'user.login');
+  assert.deepEqual(fake.collectionNames(), ['families', 'priceRecords', 'productAliases', 'receipts', 'users']);
+  assert.ok(fake.dump('users').some((u) => u._id === 'keep'));
+});
+
+test('自动创建失败时给出手动建表的提示', async () => {
+  freshStrictDb();
+  fake.setCreateCollectionError(Object.assign(new Error('permission denied'), { errCode: -501007, errMsg: 'collection.create:fail -501007 permission denied' }));
+  fake.setOpenid('A');
+  const res = await api.main({ action: 'user.login', params: {} });
+  assert.equal(res.ok, false);
+  assert.equal(res.code, 'DB_NOT_READY');
+  assert.match(res.message, /users、families、receipts、priceRecords、productAliases/);
+});
+
+test('集合不存在不会被当成“文档不存在”', () => {
+  const missing = Object.assign(new Error('x'), { errCode: -502005, errMsg: 'document.get:fail -502005 database collection not exists. [ResourceNotFound] Db or Table not exist: users' });
+  assert.equal(dbLib.isCollectionMissing(missing), true);
+  assert.equal(dbLib.isNotFound(missing), false);
+  const noDoc = Object.assign(new Error('x'), { errMsg: 'document.get:fail document with _id abc does not exist' });
+  assert.equal(dbLib.isCollectionMissing(noDoc), false);
+  assert.equal(dbLib.isNotFound(noDoc), true);
 });

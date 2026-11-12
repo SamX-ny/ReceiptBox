@@ -15,15 +15,45 @@ let files = {};
 let openid = 'openid-test';
 let idSeq = 0;
 
+// 严格模式：和真实云数据库一样，集合必须先创建才能读写
+let strict = false;
+// 测试可注入 createCollection 的失败，如模拟无权限
+let createCollectionError = null;
+let createCollectionCalls = 0;
+
 function reset() {
   docsByCollection = {};
   files = {};
   idSeq = 0;
+  strict = false;
+  createCollectionError = null;
+  createCollectionCalls = 0;
 }
 
 function store(name) {
-  if (!docsByCollection[name]) docsByCollection[name] = new Map();
+  if (!docsByCollection[name]) {
+    if (strict) {
+      const err = new Error('collection not exists');
+      err.errCode = -502005;
+      err.errMsg = 'collection.get:fail -502005 database collection not exists. [ResourceNotFound] Db or Table not exist: ' + name;
+      throw err;
+    }
+    docsByCollection[name] = new Map();
+  }
   return docsByCollection[name];
+}
+
+async function createCollection(name) {
+  createCollectionCalls++;
+  if (createCollectionError) throw createCollectionError;
+  if (docsByCollection[name]) {
+    const err = new Error('table exist');
+    err.errCode = -501001;
+    err.errMsg = 'collection.create:fail -501001 resource system error. [ResourceInUse] Table exist: ' + name;
+    throw err;
+  }
+  docsByCollection[name] = new Map();
+  return { errMsg: 'collection.create:ok' };
 }
 
 function clone(v) {
@@ -304,6 +334,7 @@ class Aggregate {
 const db = {
   command: command,
   collection: (name) => new Collection(name),
+  createCollection: createCollection,
   RegExp: (o) => new DbRegExp(o),
   serverDate: () => new Date()
 };
@@ -343,5 +374,9 @@ module.exports = {
   setOpenid: (id) => { openid = id; },
   putFile: (fileID, buf) => { files[fileID] = buf; },
   hasFile: (fileID) => !!files[fileID],
-  dump: (name) => Array.from(store(name).values()).map(clone)
+  dump: (name) => Array.from(store(name).values()).map(clone),
+  setStrict: (v) => { strict = !!v; },
+  setCreateCollectionError: (err) => { createCollectionError = err; },
+  collectionNames: () => Object.keys(docsByCollection).sort(),
+  createCollectionCalls: () => createCollectionCalls
 };

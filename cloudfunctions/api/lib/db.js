@@ -5,6 +5,8 @@
  *   receipts       { _id, familyId, createdBy, ...小票字段, categories, itemCount, createdAt, updatedAt }
  *   priceRecords   { _id, familyId, receiptId, productKey, productName, unitPrice, merchantName, date, ... }
  *   productAliases { _id: familyId + ':' + fromKey, familyId, fromKey, toKey }
+ *
+ * 这些集合会在云函数首次运行时自动创建（见 ensureCollections），无需手动建表。
  */
 
 const cloud = require('wx-server-sdk');
@@ -14,6 +16,37 @@ const _ = db.command;
 const $ = db.command.aggregate;
 
 const PAGE = 1000; // 服务端单次 get 上限
+
+const COLLECTIONS = ['users', 'families', 'receipts', 'priceRecords', 'productAliases'];
+
+let collectionsReady = null;
+
+function errorText(err) {
+  return String((err && (err.errMsg || err.message)) || '');
+}
+
+/** 是否为“集合不存在”错误（云开发错误码 -502005） */
+function isCollectionMissing(err) {
+  return (err && err.errCode === -502005) || /-502005|collection not exists?|table not exists?/i.test(errorText(err));
+}
+
+/**
+ * 确保所需集合都已创建：每个云函数实例（冷启动）只执行一次。
+ * 集合已存在时 createCollection 会报错，这里一律忽略；
+ * 如果真的创建失败（如无权限），后续读写会报“集合不存在”，由入口函数给出明确提示。
+ */
+function ensureCollections() {
+  if (!collectionsReady) {
+    collectionsReady = Promise.all(COLLECTIONS.map(function (name) {
+      return db.createCollection(name).then(function () {
+        console.log('created collection', name);
+      }, function (err) {
+        if (!/exist/i.test(errorText(err))) console.warn('createCollection ' + name + ' failed', errorText(err));
+      });
+    }));
+  }
+  return collectionsReady;
+}
 
 class AppError extends Error {
   constructor(code, message) {
@@ -49,9 +82,10 @@ function escapeRegExp(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/** 文档不存在（注意与“集合不存在”区分，后者需要报错而不是当作空结果） */
 function isNotFound(err) {
-  const msg = String((err && (err.errMsg || err.message)) || '');
-  return /not exist|does not exist|cannot find|not found/i.test(msg);
+  if (isCollectionMissing(err)) return false;
+  return /not exist|does not exist|cannot find|not found/i.test(errorText(err));
 }
 
 module.exports = {
@@ -63,5 +97,10 @@ module.exports = {
   fetchAll: fetchAll,
   inChunks: inChunks,
   escapeRegExp: escapeRegExp,
-  isNotFound: isNotFound
+  isNotFound: isNotFound,
+  COLLECTIONS: COLLECTIONS,
+  ensureCollections: ensureCollections,
+  isCollectionMissing: isCollectionMissing,
+  // 仅供测试：模拟新的云函数实例
+  resetCollectionsCheck: function () { collectionsReady = null; }
 };
