@@ -30,7 +30,14 @@ Object.assign(wx, {
       const fn = name === 'api' ? apiFn : parseFn;
       return { result: await fn.main(JSON.parse(JSON.stringify(data))) };
     },
-    async uploadFile({ cloudPath }) { const id = 'cloud://env/' + cloudPath; fake.putFile(id, Buffer.from([0xff, 0xd8, 0xff, 0])); return { fileID: id }; },
+    uploadFile({ cloudPath, success }) {
+      const id = 'cloud://env/' + cloudPath;
+      fake.putFile(id, Buffer.from([0xff, 0xd8, 0xff, 0]));
+      // 回调风格 + UploadTask（小程序端用它显示上传进度）
+      const task = { onProgressUpdate(cb) { cb({ progress: 50 }); cb({ progress: 100 }); } };
+      setTimeout(() => success({ fileID: id }), 0);
+      return task;
+    },
     deleteFile: async () => ({})
   },
   showToast: (o) => log.toast.push(o.title),

@@ -17,8 +17,11 @@ Page({
 
   onLoad() {
     // 上传完成、识别完成时刷新“待确认小票”
-    this._unsubscribe = scan.subscribe(() => {
-      if (this._visible) this.loadScans();
+    this._unsubscribe = scan.subscribe((localOnly) => {
+      if (!this._visible) return;
+      // 只是本机上传进度变化时，直接用已有数据重画，不请求服务端
+      if (localOnly) this.renderScans();
+      else this.loadScans();
     });
   },
 
@@ -55,14 +58,26 @@ Page({
       // 网络波动时保留上一次的列表，稍后重试
     }
     if (seq !== this._scanSeq) return;
+    const scans = this.renderScans();
 
+    // 还有在上传或识别中的，页面可见时每 3 秒刷新一次
+    const busy = scans.some((x) => x.status === 'uploading' || x.status === 'processing');
+    if (busy && this._visible) this._pollTimer = setTimeout(() => this.loadScans(), 3000);
+  },
+
+  /** 把本机上传中的条目和服务端的识别任务合并成列表 */
+  renderScans() {
+    const jobs = this._jobs || [];
     const locals = scan.localItems().map((x) => ({
       key: x.localId,
       local: true,
       id: x.localId,
       status: x.status,
       thumb: x.path,
-      title: x.status === 'uploading' ? '上传中…' : '上传失败',
+      title: x.status !== 'uploading' ? '上传失败'
+        : x.stage === 'compress' ? '压缩照片…'
+        : x.stage === 'upload' ? '上传中 ' + x.progress + '%'
+        : '上传完成，准备识别…',
       sub: x.status === 'uploading' ? '可以先去做别的' : x.error
     }));
     const remotes = jobs.map((j) => ({
@@ -80,10 +95,7 @@ Page({
     }));
     const scans = locals.concat(remotes);
     this.setData({ scans: scans });
-
-    // 还有在上传或识别中的，页面可见时每 3 秒刷新一次
-    const busy = scans.some((x) => x.status === 'uploading' || x.status === 'processing');
-    if (busy && this._visible) this._pollTimer = setTimeout(() => this.loadScans(), 3000);
+    return scans;
   },
 
   onScanTap(e) {

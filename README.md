@@ -163,6 +163,7 @@ npm run test:ui     # 页面冒烟测试：用 miniprogram-simulate 渲染每个
 
 测试内容：
 - `test/product|dates|receipt|stats.test.js`：商品规格解析与商品键、按周/月/年分段、小票清洗与分类分摊、统计与价格汇总
+- `test/image.test.js`：上传前的照片压缩（目标尺寸换算、微信忽略目标宽度时改用 Canvas、压缩失败时的退路）
 - `test/ocrParser.test.js`：OCR 文字块按行合并、规则解析（澳洲超市小票、中文餐厅小票）
 - `test/qwen.test.js`：通义千问请求与解析（本地模拟百炼接口）：请求格式、代码块与截断输出的容错、鉴权/限流/超时等错误
 - `test/parseReceipt.test.js`：识别云函数入口：引擎选择、通义千问失败后改用微信 OCR、乱序文字块的行合并、图片校验
@@ -176,4 +177,5 @@ npm run test:ui     # 页面冒烟测试：用 miniprogram-simulate 渲染每个
 - **分类统计**：一张超市小票通常包含多个分类，统计时按商品金额比例把小票**实付总额**分摊到各分类（折扣、附加费等差额按比例分摊），各分类之和始终等于实际支出。
 - **商品键（productKey）**：`规范化商品名|规格`，例如 `coca-cola-classic|2l`。通义千问识别时会把 `COKE CLASSIC 2LT`、`Coca Cola Classic 2L` 等写法规范成同一个商品名；仍然被识别成两个商品时（或改用微信 OCR 识别的小票），可以在商品详情页「与其他商品合并」，之后的小票会自动归入合并后的商品。
 - **单位价格**：根据规格（`2L`、`24x375ml`、`500g`）或称重单位（`kg`）计算每升 / 每千克价格，方便比较不同规格。
+- **照片压缩**：上传前在手机上把照片最长边缩到 1600 像素、JPEG 质量 70（`miniprogram/config.js` 的 `maxImageSide`、`imageQuality`），几 MB 的相机原图通常会降到几百 KB，上传更快。小票很长、字很小导致识别不清时，可以把 `maxImageSide` 调回 2000。
 - 货币默认 AUD，可在 `miniprogram/config.js` 修改显示符号。

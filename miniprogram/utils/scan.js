@@ -14,10 +14,14 @@ const listeners = [];
 let local = [];
 let seq = 0;
 
-function notify() {
+/**
+ * 通知订阅者。localOnly 为 true 表示只有本机的上传进度变了，
+ * 页面用已有数据重新渲染即可，不需要再请求服务端。
+ */
+function notify(localOnly) {
   listeners.slice().forEach((fn) => {
     try {
-      fn();
+      fn(localOnly === true);
     } catch (e) {
       console.error('scan listener failed', e);
     }
@@ -59,11 +63,20 @@ function runJob(jobId) {
 }
 
 async function start(path) {
-  const item = { localId: 'local' + (++seq), path: path, status: 'uploading', error: '' };
+  const item = { localId: 'local' + (++seq), path: path, status: 'uploading', stage: 'compress', progress: 0, error: '' };
   local.unshift(item);
-  notify();
+  notify(true);
   try {
-    const fileID = await api.uploadReceiptImage(path);
+    const fileID = await api.uploadReceiptImage(path, (stage, percent) => {
+      // 进度每变化 10% 才刷新一次界面
+      const step = Math.floor(percent / 10) * 10;
+      if (stage === item.stage && step === item.progress) return;
+      item.stage = stage;
+      item.progress = step;
+      notify(true);
+    });
+    item.stage = 'create';
+    notify(true);
     const res = await api.call('scan.create', { fileID: fileID, today: dates.today() }, { silent: true });
     removeLocal(item.localId);
     notify();
@@ -72,7 +85,7 @@ async function start(path) {
     console.error('upload failed', err);
     item.status = 'failed';
     item.error = err.code ? err.message : '上传失败，请检查网络后重试';
-    notify();
+    notify(true);
   }
 }
 
@@ -85,7 +98,7 @@ function retryLocal(localId) {
 
 function dismissLocal(localId) {
   removeLocal(localId);
-  notify();
+  notify(true);
 }
 
 /** 重新识别一个失败的任务 */
