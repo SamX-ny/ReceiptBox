@@ -4,9 +4,6 @@ const api = require('./utils/api');
 App({
   globalData: {
     family: null,
-    // 识别结果草稿：扫描页 → 编辑页之间传递，避免超长 URL 参数
-    draft: null,
-    draftWarnings: [],
     // 数据有变动时置为 true，各页面 onShow 时据此刷新
     dirty: { home: true, receipts: true, stats: true, products: true }
   },

@@ -141,23 +141,69 @@ async function api(action, params) {
   results.push(check('筛选列表 receipt-list', await renderPage('pages/receipt-list/index', { merchant: 'Woolworths' }), ['Woolworths']));
   results.push(check('我的 mine', await renderPage('pages/mine/index'), ['妈妈', '家庭邀请码', '果蔬']));
 
-  // —— 识别 → 确认 → 保存 流程 ——
-  fake.sdk.openapi.ocr.printedText = async () => ({ items: ['IGA', today.split('-').reverse().join('/') + ' 10:05', 'COKE CLASSIC 2L   4.80', 'TOTAL  4.80'].map((t) => ({ text: t })) });
+  // —— 后台识别：上传后不用等待，首页显示进度，完成后核对保存 ——
+  const scanMgr = require(path.join(MP, 'utils/scan'));
+  const tap = (index) => ({ currentTarget: { dataset: { index } } });
+  let releaseOcr;
+  const ocrLines = ['IGA', today.split('-').reverse().join('/') + ' 10:05', 'COKE CLASSIC 2L   4.80', 'TOTAL  4.80'].map((t) => ({ text: t }));
+  fake.sdk.openapi.ocr.printedText = () => new Promise((resolve) => { releaseOcr = () => resolve({ items: ocrLines }); });
+
+  scanMgr.start('/tmp/x.jpg');
+  await simulate.sleep(60);
+  const home = await renderPage('pages/index/index');
+  results.push(check('首页：识别中（云函数还没返回）', home, ['待确认小票 · 1', '识别中…', '可以先去做别的']));
+  home.instance._visible = true;
+  releaseOcr();
+  await simulate.sleep(120);
+  results.push(check('首页：识别完成', home, ['待确认小票 · 1', 'IGA', '$4.80 · 1 件商品 · 点击核对并保存']));
+  results.push(log.toast.includes('小票识别完成，回首页核对'));
+
   log.nav = [];
-  await renderPage('pages/scan/index', { path: encodeURIComponent('/tmp/x.jpg') });
-  await simulate.sleep(50);
-  console.log('\nscan nav:', log.nav);
-  const edit = await renderPage('pages/receipt-edit/index', { mode: 'create', engine: 'wechat-ocr' });
-  results.push(check('确认 receipt-edit (create)', edit, ['OCR 规则识别', '合计 $4.80']));
-  console.log('form:', JSON.stringify(edit.instance.data.form), 'item0:', edit.instance.data.items[0].name);
+  home.instance.onScanTap(tap(0));
+  const jobUrl = log.nav[0] || '';
+  console.log('\nscan tap nav:', log.nav);
+  results.push(/receipt-edit\/index\?mode=create&jobId=/.test(jobUrl));
+  const jobId = jobUrl.split('jobId=')[1];
+  const edit = await renderPage('pages/receipt-edit/index', { mode: 'create', jobId });
+  results.push(check('确认 receipt-edit (来自识别任务)', edit, ['OCR 规则识别', '合计 $4.80']));
   results.push(edit.instance.data.form.merchantName === 'IGA' && edit.instance.data.items[0].name === 'COKE CLASSIC 2L');
   log.nav = [];
   await edit.instance.onSaveTap();
   await simulate.sleep(30);
-  console.log('save nav:', log.nav, 'toasts:', log.toast.slice(-3));
+  console.log('save nav:', log.nav);
   results.push(log.nav.some((u) => /receipt-detail/.test(u)));
+  await home.instance.loadScans();
+  results.push(home.instance.data.scans.length === 0);
 
-  // —— 配置通义千问后：拍照 → Qwen 识别 → 确认页显示 AI 识别结果 ——
+  // —— 识别失败 → 首页显示原因 → 重试成功 ——
+  fake.sdk.openapi.ocr.printedText = async () => ({ items: [] });
+  scanMgr.start('/tmp/blurry.jpg');
+  await simulate.sleep(150);
+  results.push(check('首页：识别失败', home, ['识别失败', '没有识别到文字', '重试', '手动录入', '删除']));
+  fake.sdk.openapi.ocr.printedText = async () => ({ items: ocrLines });
+  await home.instance.onScanRetry(tap(0));
+  await simulate.sleep(150);
+  results.push(check('首页：重试后识别完成', home, ['IGA', '点击核对并保存']));
+  // 失败的任务也可以带着照片手动录入
+  log.nav = [];
+  home.instance.onScanManual(tap(0));
+  results.push(/mode=create&jobId=/.test(log.nav[0] || ''));
+
+  // —— 云函数调用本身失败（如超时时间只有 3 秒）→ 首页显示处理办法 ——
+  const realCall = wx.cloud.callFunction;
+  wx.cloud.callFunction = (o) => (o.name === 'parseReceipt'
+    ? Promise.reject({ errCode: -504003, errMsg: 'cloud.callFunction:fail Error: errCode: -504003 | errMsg: Invoking task timed out after 3 seconds' })
+    : realCall(o));
+  scanMgr.start('/tmp/z.jpg');
+  await simulate.sleep(150);
+  wx.cloud.callFunction = realCall;
+  results.push(check('首页：云函数超时', home, ['识别失败', '云函数 parseReceipt 运行超时', '改为 60 秒']));
+  console.log('（以上两段是故意制造的失败，产生的 console.error 属于预期：' + log.errors.length + ' 条）');
+  log.errors.length = 0;
+  // 清掉剩余任务
+  for (const job of (await api('scan.list', {})).list) await api('scan.delete', { id: job._id });
+
+  // —— 配置通义千问后：后台识别 → 确认页显示 AI 识别结果 ——
   const dashscope = await require(path.join(ROOT, 'test/helpers/fake-dashscope')).start();
   process.env.DASHSCOPE_BASE_URL = dashscope.baseUrl;
   process.env.DASHSCOPE_API_KEY = 'sk-test';
@@ -166,12 +212,11 @@ async function api(action, params) {
     date: today, time: '09:15', currency: 'AUD', subtotal: 7.4, tax: null, discount: null, total: 7.4, paymentMethod: 'Visa', notes: '',
     items: [{ name: 'AVOCADO HASS', productName: 'Avocado Hass', spec: '', quantity: 2, unit: 'each', unitPrice: 3.7, totalPrice: 7.4, discount: 0, category: 'produce' }]
   }));
-  log.nav = [];
-  await renderPage('pages/scan/index', { path: encodeURIComponent('/tmp/y.jpg') });
-  await simulate.sleep(80);
-  console.log('\nqwen scan nav:', log.nav);
-  results.push(log.nav.some((u) => /engine=qwen/.test(u)));
-  const aiEdit = await renderPage('pages/receipt-edit/index', { mode: 'create', engine: 'qwen' });
+  scanMgr.start('/tmp/y.jpg');
+  await simulate.sleep(200);
+  results.push(check('首页：通义千问识别完成', home, ['Harris Farm Markets', '$7.40 · 1 件商品']));
+  const qwenJob = (await api('scan.list', {})).list[0];
+  const aiEdit = await renderPage('pages/receipt-edit/index', { mode: 'create', jobId: qwenJob._id });
   results.push(check('确认 receipt-edit (Qwen)', aiEdit, ['AI 识别结果，请核对后保存', '合计 $7.40', '果蔬']));
   results.push(aiEdit.instance.data.form.merchantName === 'Harris Farm Markets' && aiEdit.instance.data.items[0].quantity === '2');
   delete process.env.DASHSCOPE_API_KEY;

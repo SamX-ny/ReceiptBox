@@ -5,6 +5,7 @@
  *   receipts       { _id, familyId, createdBy, ...小票字段, categories, itemCount, createdAt, updatedAt }
  *   priceRecords   { _id, familyId, receiptId, productKey, productName, unitPrice, merchantName, date, ... }
  *   productAliases { _id: familyId + ':' + fromKey, familyId, fromKey, toKey }
+ *   scanJobs       { _id, familyId, createdBy, imageFileID, status, draft, ... }（后台识别任务，见 scans.js）
  *
  * 这些集合会在云函数首次运行时自动创建（见 ensureCollections），无需手动建表。
  */
@@ -17,7 +18,7 @@ const $ = db.command.aggregate;
 
 const PAGE = 1000; // 服务端单次 get 上限
 
-const COLLECTIONS = ['users', 'families', 'receipts', 'priceRecords', 'productAliases'];
+const COLLECTIONS = ['users', 'families', 'receipts', 'priceRecords', 'productAliases', 'scanJobs'];
 
 let collectionsReady = null;
 

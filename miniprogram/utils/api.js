@@ -2,7 +2,7 @@
  * 云函数调用封装。
  *   call(action, params, { silent, loading })  调用 api 云函数
  *   uploadReceiptImage(filePath)               压缩并上传小票图片，返回 fileID
- *   parseReceipt(fileID)                       调用 parseReceipt 云函数识别
+ *   parseJob(jobId)                            启动后台识别（parseReceipt 云函数）
  */
 
 const config = require('../config');
@@ -102,13 +102,17 @@ async function uploadReceiptImage(filePath) {
   return res.fileID;
 }
 
-function parseReceipt(fileID) {
-  return wx.cloud.callFunction({ name: 'parseReceipt', data: { fileID: fileID, today: dates.today() } })
+/**
+ * 启动后台识别：云函数 parseReceipt 处理识别任务并把结果写回任务记录。
+ * 返回的 Promise 只用于“识别完成/失败”的提示，调用方不需要等待它。
+ */
+function parseJob(jobId) {
+  return wx.cloud.callFunction({ name: 'parseReceipt', data: { jobId: jobId } })
     .then((res) => {
       const r = res.result || {};
       if (!r.ok) {
         const err = new Error(r.message || '识别失败');
-        err.code = r.code;
+        err.code = r.code || 'RECOGNIZE_FAILED';
         throw err;
       }
       return r;
@@ -124,5 +128,5 @@ module.exports = {
   call: call,
   toast: toast,
   uploadReceiptImage: uploadReceiptImage,
-  parseReceipt: parseReceipt
+  parseJob: parseJob
 };

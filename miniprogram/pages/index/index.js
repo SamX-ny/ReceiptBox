@@ -2,6 +2,7 @@ const app = getApp();
 const api = require('../../utils/api');
 const format = require('../../utils/format');
 const capture = require('../../utils/capture');
+const scan = require('../../utils/scan');
 const dates = require('../../shared/dates');
 
 Page({
@@ -9,15 +10,130 @@ Page({
     loading: true,
     overview: null,
     recent: [],
-    familyName: ''
+    familyName: '',
+    // 待确认小票：上传中 / 识别中 / 待核对 / 失败
+    scans: []
+  },
+
+  onLoad() {
+    // 上传完成、识别完成时刷新“待确认小票”
+    this._unsubscribe = scan.subscribe(() => {
+      if (this._visible) this.loadScans();
+    });
+  },
+
+  onUnload() {
+    if (this._unsubscribe) this._unsubscribe();
+    clearTimeout(this._pollTimer);
   },
 
   onShow() {
+    this._visible = true;
     if (app.consumeDirty('home')) this.load();
+    this.loadScans();
+  },
+
+  onHide() {
+    this._visible = false;
+    clearTimeout(this._pollTimer);
   },
 
   onPullDownRefresh() {
-    this.load().finally(() => wx.stopPullDownRefresh());
+    Promise.all([this.load(), this.loadScans()]).finally(() => wx.stopPullDownRefresh());
+  },
+
+  // ===== 待确认小票（后台识别） =====
+  async loadScans() {
+    clearTimeout(this._pollTimer);
+    const seq = (this._scanSeq = (this._scanSeq || 0) + 1);
+    if (app.ready) await app.ready;
+    let jobs = this._jobs || [];
+    try {
+      jobs = (await api.call('scan.list', {}, { silent: true })).list;
+      this._jobs = jobs;
+    } catch (e) {
+      // 网络波动时保留上一次的列表，稍后重试
+    }
+    if (seq !== this._scanSeq) return;
+
+    const locals = scan.localItems().map((x) => ({
+      key: x.localId,
+      local: true,
+      id: x.localId,
+      status: x.status,
+      thumb: x.path,
+      title: x.status === 'uploading' ? '上传中…' : '上传失败',
+      sub: x.status === 'uploading' ? '可以先去做别的' : x.error
+    }));
+    const remotes = jobs.map((j) => ({
+      key: j._id,
+      local: false,
+      id: j._id,
+      status: j.status,
+      thumb: j.imageUrl,
+      title: j.status === 'processing' ? '识别中…'
+        : j.status === 'ready' ? (j.merchantName || '识别完成')
+        : '识别失败',
+      sub: j.status === 'processing' ? '一般需要 10～30 秒，可以先去做别的'
+        : j.status === 'ready' ? format.money(j.total) + ' · ' + j.itemCount + ' 件商品 · 点击核对并保存'
+        : j.errorMessage
+    }));
+    const scans = locals.concat(remotes);
+    this.setData({ scans: scans });
+
+    // 还有在上传或识别中的，页面可见时每 3 秒刷新一次
+    const busy = scans.some((x) => x.status === 'uploading' || x.status === 'processing');
+    if (busy && this._visible) this._pollTimer = setTimeout(() => this.loadScans(), 3000);
+  },
+
+  onScanTap(e) {
+    const item = this.data.scans[e.currentTarget.dataset.index];
+    if (!item || item.local) return;
+    if (item.status === 'ready') {
+      wx.navigateTo({ url: '/pages/receipt-edit/index?mode=create&jobId=' + item.id });
+    } else if (item.status === 'processing') {
+      wx.showToast({ title: '还在识别中，稍等一下', icon: 'none' });
+    }
+  },
+
+  async onScanRetry(e) {
+    const item = this.data.scans[e.currentTarget.dataset.index];
+    if (!item) return;
+    if (item.local) scan.retryLocal(item.id);
+    else {
+      try {
+        await scan.retry(item.id);
+      } catch (err) {}
+    }
+  },
+
+  /** 识别失败时带着照片手动录入 */
+  onScanManual(e) {
+    const item = this.data.scans[e.currentTarget.dataset.index];
+    if (!item) return;
+    if (item.local) wx.navigateTo({ url: '/pages/receipt-edit/index?mode=manual' });
+    else wx.navigateTo({ url: '/pages/receipt-edit/index?mode=create&jobId=' + item.id });
+  },
+
+  onScanDelete(e) {
+    const item = this.data.scans[e.currentTarget.dataset.index];
+    if (!item) return;
+    if (item.local) {
+      scan.dismissLocal(item.id);
+      return;
+    }
+    wx.showModal({
+      title: '删除这张待确认的小票？',
+      content: '照片和识别结果都会删除。',
+      confirmText: '删除',
+      confirmColor: '#c62828',
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          await scan.remove(item.id);
+        } catch (err) {}
+      }
+    });
   },
 
   async load() {

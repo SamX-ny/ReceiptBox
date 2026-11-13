@@ -1,17 +1,26 @@
 /**
- * 拍照 / 从相册选择小票，然后进入识别页。
+ * 拍照 / 从相册选择小票，交给后台识别（utils/scan.js），不需要停留等待。
+ * 相册可以一次选多张。
  */
+const scan = require('./scan');
+
 function captureReceipt(source) {
+  const fromAlbum = source === 'album';
   wx.chooseMedia({
-    count: 1,
+    count: fromAlbum ? 9 : 1,
     mediaType: ['image'],
-    sourceType: [source === 'album' ? 'album' : 'camera'],
+    sourceType: [fromAlbum ? 'album' : 'camera'],
     sizeType: ['compressed'],
     camera: 'back',
     success(res) {
-      const file = res.tempFiles && res.tempFiles[0];
-      if (!file) return;
-      wx.navigateTo({ url: '/pages/scan/index?path=' + encodeURIComponent(file.tempFilePath) });
+      const files = (res.tempFiles || []).filter((f) => f && f.tempFilePath);
+      if (!files.length) return;
+      files.forEach((f) => scan.start(f.tempFilePath));
+      wx.showToast({ title: '已开始识别，可以先去做别的', icon: 'none', duration: 2500 });
+      // 识别进度显示在首页
+      const pages = getCurrentPages();
+      const current = pages[pages.length - 1];
+      if (current && current.route !== 'pages/index/index') wx.switchTab({ url: '/pages/index/index' });
     },
     fail(err) {
       if (!/cancel/.test(err.errMsg || '')) {

@@ -61,3 +61,95 @@
 .action-secondary .btn + .btn {
   margin-top: 8rpx;
 }
+
+/* ===== 待确认小票 ===== */
+.scan {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--border);
+}
+
+.scan:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.scan-main {
+  display: flex;
+  align-items: center;
+}
+
+.scan-thumb {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 12rpx;
+  background: var(--surface-2);
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.scan-title {
+  font-size: 30rpx;
+  font-weight: 500;
+}
+
+.scan-sub {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  margin-top: 4rpx;
+}
+
+.scan.failed .scan-title {
+  color: var(--bad);
+}
+
+.scan.failed .scan-sub {
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.scan-go {
+  color: var(--brand);
+  font-weight: 600;
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+
+.scan-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12rpx;
+}
+
+.scan-btn {
+  padding: 8rpx 24rpx;
+  margin-left: 16rpx;
+  border-radius: 24rpx;
+  background: var(--surface-2);
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.scan-btn.primary {
+  background: var(--brand);
+  color: var(--brand-text);
+}
+
+.scan-btn.danger {
+  color: var(--bad);
+}
+
+.spinner {
+  display: inline-block;
+  width: 24rpx;
+  height: 24rpx;
+  margin-right: 12rpx;
+  border: 4rpx solid var(--border);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  vertical-align: -2rpx;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

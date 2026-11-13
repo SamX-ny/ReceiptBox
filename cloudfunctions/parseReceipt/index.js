@@ -1,8 +1,10 @@
 /**
- * 云函数 parseReceipt：识别小票照片，返回待用户确认的小票草稿（不写库）。
+ * 云函数 parseReceipt：识别小票照片，生成待用户确认的小票草稿（不会直接生成小票）。
  *
- * 入参：{ fileID: 'cloud://...' }
- * 返回：{ ok: true, draft, warnings, engine } 或 { ok: false, code, message }
+ * 入参（二选一）：
+ *   { jobId }            后台识别：处理 api 云函数 scan.create 创建的任务，结果写回 scanJobs（小程序使用这种）
+ *   { fileID, today }    直接识别并返回草稿，不读写数据库
+ * 返回：{ ok: true, engine, ... } 或 { ok: false, code, message }
  *
  * 识别引擎（云函数环境变量 RECEIPT_ENGINE，一般不用设置）：
  *   - 未设置：配置了 DASHSCOPE_API_KEY 就用通义千问 Qwen-VL-OCR，否则用微信 OCR
@@ -113,9 +115,8 @@ async function recognize(buffer, mediaType, startedAt) {
   }
 }
 
-exports.main = async function (event) {
-  const startedAt = Date.now();
-  const fileID = event && event.fileID;
+/** 识别一张已上传的图片，返回 { ok, engine, draft, warnings } 或 { ok: false, code, message } */
+async function recognizeFile(fileID, today, startedAt) {
   if (!fileID || typeof fileID !== 'string' || fileID.indexOf('cloud://') !== 0) {
     return { ok: false, code: 'INVALID_ARGUMENT', message: '缺少小票图片' };
   }
@@ -153,7 +154,7 @@ exports.main = async function (event) {
   const sanitized = receiptLib.sanitizeReceipt(Object.assign({}, data, {
     imageFileID: fileID,
     source: recognized.engine
-  }), { defaultDate: event.today });
+  }), { defaultDate: today });
 
   const warnings = [];
   if (recognized.fallbackFrom) {
@@ -168,6 +169,48 @@ exports.main = async function (event) {
     draft: sanitized.receipt,
     warnings: warnings
   };
+}
+
+/**
+ * 后台识别：处理 api 云函数创建的识别任务（scanJobs），把结果写回任务。
+ * 小程序调用后不必等待；用户离开页面甚至关闭小程序，云函数仍会运行到结束。
+ */
+async function runJob(jobId, startedAt) {
+  const db = cloud.database();
+  const openid = cloud.getWXContext().OPENID;
+  let job = null;
+  try {
+    job = (await db.collection('scanJobs').doc(String(jobId)).get()).data;
+  } catch (err) {
+    console.error('load scan job failed', err);
+  }
+  if (!job || job.createdBy !== openid) {
+    return { ok: false, code: 'NOT_FOUND', message: '识别任务不存在或已处理' };
+  }
+
+  const result = await recognizeFile(job.imageFileID, job.today, startedAt);
+  const _ = db.command;
+  const data = result.ok
+    ? { status: 'ready', draft: _.set(result.draft), warnings: _.set(result.warnings), engine: result.engine, errorCode: '', errorMessage: '' }
+    : { status: 'failed', errorCode: result.code || 'RECOGNIZE_FAILED', errorMessage: result.message || '识别失败' };
+  data.updatedAt = db.serverDate();
+  try {
+    await db.collection('scanJobs').doc(job._id).update({ data: data });
+  } catch (err) {
+    // 任务可能已被用户删除
+    console.error('save scan job failed', err);
+    return { ok: false, code: 'SAVE_FAILED', jobId: job._id, message: '识别结果保存失败，请重试' };
+  }
+  // 草稿已写入任务，不必再回传给小程序
+  return result.ok
+    ? { ok: true, jobId: job._id, engine: result.engine }
+    : { ok: false, jobId: job._id, code: result.code, message: result.message };
+}
+
+exports.main = async function (event) {
+  const startedAt = Date.now();
+  if (event && event.jobId) return runJob(event.jobId, startedAt);
+  return recognizeFile(event && event.fileID, event && event.today, startedAt);
 };
 
 // 便于单元测试

@@ -64,7 +64,17 @@ async function findDuplicate(familyId, receipt, excludeId) {
 }
 
 async function create(ctx, params) {
-  const sanitized = receiptLib.sanitizeReceipt(params.receipt, { defaultDate: params.today });
+  // 来自后台识别任务：图片与来源以任务记录为准，保存成功后任务随之删除
+  let job = null;
+  let input = params.receipt;
+  if (params.jobId) {
+    job = await require('./scans').getOwnedJob(ctx, params.jobId);
+    input = Object.assign({}, params.receipt, {
+      imageFileID: job.imageFileID,
+      source: job.status === 'ready' && job.engine ? job.engine : 'manual'
+    });
+  }
+  const sanitized = receiptLib.sanitizeReceipt(input, { defaultDate: params.today });
   const receipt = sanitized.receipt;
   if (!(receipt.total > 0) && !receipt.items.length) throw new AppError('INVALID_ARGUMENT', '请至少填写金额或一个商品');
 
@@ -81,6 +91,7 @@ async function create(ctx, params) {
   });
   const res = await db.collection('receipts').add({ data: doc });
   await writePriceRecords(ctx.family._id, res._id, receipt);
+  if (job) await db.collection('scanJobs').doc(job._id).remove();
   return { _id: res._id, warnings: sanitized.warnings };
 }
 

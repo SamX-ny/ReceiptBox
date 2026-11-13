@@ -5,7 +5,6 @@
     "pages/stats/index",
     "pages/products/index",
     "pages/mine/index",
-    "pages/scan/index",
     "pages/receipt-edit/index",
     "pages/receipt-detail/index",
     "pages/receipt-list/index",

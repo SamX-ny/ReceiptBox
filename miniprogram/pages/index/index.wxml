@@ -36,6 +36,35 @@
     </view>
   </view>
 
+  <!-- 待确认小票：后台上传 / 识别的进度与结果 -->
+  <view class="card" wx:if="{{scans.length}}">
+    <view class="card-title">
+      <text>待确认小票 · {{scans.length}}</text>
+      <text class="more">识别在后台进行</text>
+    </view>
+    <view wx:for="{{scans}}" wx:key="key" class="scan {{item.status}}">
+      <view class="scan-main" data-index="{{index}}" bindtap="onScanTap" hover-class="{{item.status === 'ready' ? 'btn-hover' : ''}}">
+        <image class="scan-thumb" src="{{item.thumb}}" mode="aspectFill" />
+        <view class="flex-1">
+          <view class="scan-title ellipsis">
+            <text wx:if="{{item.status === 'uploading' || item.status === 'processing'}}" class="spinner"></text>
+            <text>{{item.title}}</text>
+          </view>
+          <view class="scan-sub {{item.status === 'failed' ? '' : 'ellipsis'}}">{{item.sub}}</view>
+        </view>
+        <text wx:if="{{item.status === 'ready'}}" class="scan-go">核对 ›</text>
+      </view>
+      <view wx:if="{{item.status === 'failed'}}" class="scan-actions">
+        <view class="scan-btn primary" data-index="{{index}}" bindtap="onScanRetry">重试</view>
+        <view class="scan-btn" data-index="{{index}}" bindtap="onScanManual">手动录入</view>
+        <view class="scan-btn danger" data-index="{{index}}" bindtap="onScanDelete">删除</view>
+      </view>
+      <view wx:elif="{{item.status === 'ready'}}" class="scan-actions">
+        <view class="scan-btn danger" data-index="{{index}}" bindtap="onScanDelete">删除</view>
+      </view>
+    </view>
+  </view>
+
   <!-- 本月趋势 -->
   <view class="card" wx:if="{{overview}}">
     <view class="card-title">

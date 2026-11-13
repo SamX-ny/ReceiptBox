@@ -1,7 +1,7 @@
 /**
  * 小票编辑 / 确认页。
- *   mode=create  来自识别结果（app.globalData.draft）
- *   mode=manual  手动记一笔
+ *   mode=create&jobId=xxx  核对后台识别任务的结果（识别失败的任务则带着照片手动填写）
+ *   mode=manual            手动记一笔
  *   mode=edit&id=xxx  编辑已有小票
  */
 const app = getApp();
@@ -51,6 +51,7 @@ Page({
   data: {
     mode: 'create',
     id: '',
+    jobId: '',
     loading: false,
     saving: false,
     warnings: [],
@@ -83,34 +84,36 @@ Page({
   },
 
   onLoad(query) {
-    const mode = query.mode || 'create';
-    const engine = query.engine || '';
-    this.setData({
-      mode: mode,
-      id: query.id || '',
-      engine: engine,
-      engineHint: engine === 'qwen' || engine === 'claude' ? 'AI 识别结果，请核对后保存'
-        : engine === 'wechat-ocr' ? 'OCR 规则识别，建议仔细核对' : '点击查看原图'
-    });
+    // create 模式必须来自一个识别任务；没有任务时按手动记账处理
+    const jobId = query.jobId || '';
+    const mode = query.mode === 'edit' ? 'edit' : jobId ? 'create' : 'manual';
+    this.setData({ mode: mode, id: query.id || '', jobId: jobId });
     wx.setNavigationBarTitle({ title: mode === 'edit' ? '编辑小票' : mode === 'manual' ? '记一笔' : '确认小票' });
 
-    if (mode === 'edit') {
-      this.loadExisting(query.id);
-    } else if (mode === 'create' && app.globalData.draft) {
-      this.fill(app.globalData.draft);
-      this.setData({ warnings: app.globalData.draftWarnings || [] });
-      app.globalData.draft = null;
-      // 识别结果未保存就返回时提醒用户
-      if (wx.enableAlertBeforeUnload) wx.enableAlertBeforeUnload({ message: '识别结果还没有保存，确定离开吗？' });
-    } else {
-      this.addItem();
-    }
+    if (mode === 'edit') this.loadExisting(query.id);
+    else if (mode === 'create') this.loadJob(jobId);
+    else this.addItem();
   },
 
-  onUnload() {
-    // 识别后未保存：清理已上传的图片，避免占用存储
-    if (this.data.mode === 'create' && !this._saved && this.data.imageFileID) {
-      wx.cloud.deleteFile({ fileList: [this.data.imageFileID] }).catch(() => {});
+  /** 从后台识别任务载入草稿。没保存就返回也不会丢：任务还在首页“待确认小票”里 */
+  async loadJob(jobId) {
+    this.setData({ loading: true });
+    try {
+      const job = await api.call('scan.get', { id: jobId }, { loading: '加载中' });
+      const engine = job.engine;
+      this.fill(job.draft);
+      this.setData({
+        imageUrl: job.imageUrl || '',
+        warnings: job.warnings || [],
+        engine: engine,
+        engineHint: engine === 'qwen' || engine === 'claude' ? 'AI 识别结果，请核对后保存'
+          : engine === 'wechat-ocr' ? 'OCR 规则识别，建议仔细核对' : '识别未成功，请对照照片手动填写'
+      });
+      if (!this.data.items.length) this.addItem();
+    } catch (e) {
+      if (e.code === 'NOT_FOUND') setTimeout(() => wx.navigateBack(), 1200);
+    } finally {
+      this.setData({ loading: false });
     }
   },
 
@@ -316,7 +319,12 @@ Page({
         wx.navigateBack();
         return;
       }
-      const res = await api.call('receipt.create', { receipt: payload, today: dates.today(), force: force === true }, { loading: '保存中' });
+      const res = await api.call('receipt.create', {
+        receipt: payload,
+        today: dates.today(),
+        force: force === true,
+        jobId: this.data.jobId || undefined
+      }, { loading: '保存中' });
       if (res.duplicateOf) {
         const confirm = await new Promise((resolve) => wx.showModal({
           title: '可能重复',
@@ -340,8 +348,6 @@ Page({
   },
 
   done() {
-    this._saved = true;
-    if (wx.disableAlertBeforeUnload) wx.disableAlertBeforeUnload();
     app.markDirty();
   },
 

@@ -18,6 +18,7 @@ const ACTIONS = Object.assign(
   {},
   user.actions,
   require('./lib/receipts').actions,
+  require('./lib/scans').actions,
   require('./lib/stats').actions,
   require('./lib/products').actions
 );

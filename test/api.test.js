@@ -175,15 +175,15 @@ test('首次运行自动创建全部集合，之后同一实例不再重复创�
   assert.deepEqual(fake.collectionNames(), []);
   const login = await call('A', 'user.login');
   assert.equal(login.family.isPersonal, true);
-  assert.deepEqual(fake.collectionNames(), ['families', 'priceRecords', 'productAliases', 'receipts', 'users']);
-  assert.equal(fake.createCollectionCalls(), 5);
+  assert.deepEqual(fake.collectionNames(), ['families', 'priceRecords', 'productAliases', 'receipts', 'scanJobs', 'users']);
+  assert.equal(fake.createCollectionCalls(), 6);
 
   // 全流程在严格模式下可用
   const r = await call('A', 'receipt.create', { receipt: receipt('Coles', '2026-11-03', [coke(4.5)]) });
   assert.ok(r._id);
   assert.equal((await call('A', 'product.list', {})).list.length, 1);
   assert.equal((await call('A', 'stats.summary', { type: 'month', date: '2026-11-03' })).total, 4.5);
-  assert.equal(fake.createCollectionCalls(), 5, '同一实例只检查一次');
+  assert.equal(fake.createCollectionCalls(), 6, '同一实例只检查一次');
 });
 
 test('部分集合已存在时只补建缺少的，已有数据不受影响', async () => {
@@ -191,7 +191,7 @@ test('部分集合已存在时只补建缺少的，已有数据不受影响', as
   await fake.sdk.database().createCollection('users');
   await fake.sdk.database().collection('users').add({ data: { _id: 'keep', familyId: 'x' } });
   await call('A', 'user.login');
-  assert.deepEqual(fake.collectionNames(), ['families', 'priceRecords', 'productAliases', 'receipts', 'users']);
+  assert.deepEqual(fake.collectionNames(), ['families', 'priceRecords', 'productAliases', 'receipts', 'scanJobs', 'users']);
   assert.ok(fake.dump('users').some((u) => u._id === 'keep'));
 });
 
@@ -202,7 +202,7 @@ test('自动创建失败时给出手动建表的提示', async () => {
   const res = await api.main({ action: 'user.login', params: {} });
   assert.equal(res.ok, false);
   assert.equal(res.code, 'DB_NOT_READY');
-  assert.match(res.message, /users、families、receipts、priceRecords、productAliases/);
+  assert.match(res.message, /users、families、receipts、priceRecords、productAliases、scanJobs/);
 });
 
 test('集合不存在不会被当成“文档不存在”', () => {
@@ -212,4 +212,128 @@ test('集合不存在不会被当成“文档不存在”', () => {
   const noDoc = Object.assign(new Error('x'), { errMsg: 'document.get:fail document with _id abc does not exist' });
   assert.equal(dbLib.isCollectionMissing(noDoc), false);
   assert.equal(dbLib.isNotFound(noDoc), true);
+});
+
+// ===== 后台识别任务 =====
+
+const parseFn = require('../cloudfunctions/parseReceipt/index');
+const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(100)]);
+
+async function parseJob(user, jobId) {
+  fake.setOpenid(user);
+  return parseFn.main({ jobId: jobId });
+}
+
+function useOcr(lines) {
+  delete process.env.DASHSCOPE_API_KEY;
+  delete process.env.RECEIPT_ENGINE;
+  fake.sdk.openapi.ocr.printedText = async () => ({ items: lines.map((text) => ({ text })) });
+}
+
+test('后台识别：创建任务 → 识别写回 → 列表显示 → 确认保存后任务删除', async () => {
+  fake.reset();
+  fake.putFile('cloud://env/a.jpg', JPEG);
+  useOcr(['Coles', '03/11/2026 10:01', 'COKE CLASSIC 2L   4.50', 'TOTAL   4.50']);
+
+  const created = await call('A', 'scan.create', { fileID: 'cloud://env/a.jpg', today: '2026-11-09' });
+  assert.equal(created.job.status, 'processing');
+  let list = (await call('A', 'scan.list')).list;
+  assert.equal(list.length, 1);
+  assert.equal(list[0].status, 'processing');
+  assert.match(list[0].imageUrl, /^https:/);
+
+  // 小程序调用后不等待；这里直接执行云函数
+  const res = await parseJob('A', created.job._id);
+  assert.deepEqual(res, { ok: true, jobId: created.job._id, engine: 'wechat-ocr' });
+
+  list = (await call('A', 'scan.list')).list;
+  assert.deepEqual([list[0].status, list[0].merchantName, list[0].total, list[0].itemCount, list[0].engine], ['ready', 'Coles', 4.5, 1, 'wechat-ocr']);
+
+  const job = await call('A', 'scan.get', { id: created.job._id });
+  assert.equal(job.draft.items[0].name, 'COKE CLASSIC 2L');
+  assert.equal(job.draft.date, '2026-11-03');
+  assert.equal(job.engine, 'wechat-ocr');
+  assert.ok(job.warnings.length >= 1);
+
+  // 其他人看不到、也不能处理这个任务
+  assert.equal((await call('B', 'scan.list')).list.length, 0);
+  await assert.rejects(call('B', 'scan.get', { id: created.job._id }), (e) => e.code === 'NOT_FOUND');
+  assert.equal((await parseJob('B', created.job._id)).code, 'NOT_FOUND');
+
+  // 确认保存：图片与来源以任务为准，任务随之删除，图片保留给小票
+  const edited = Object.assign({}, job.draft, { imageFileID: 'cloud://env/other.jpg', source: 'manual' });
+  const saved = await call('A', 'receipt.create', { receipt: edited, jobId: created.job._id });
+  const receiptDoc = await call('A', 'receipt.get', { id: saved._id });
+  assert.equal(receiptDoc.imageFileID, 'cloud://env/a.jpg');
+  assert.equal(receiptDoc.source, 'wechat-ocr');
+  assert.equal((await call('A', 'scan.list')).list.length, 0);
+  assert.equal(fake.hasFile('cloud://env/a.jpg'), true);
+  await assert.rejects(call('A', 'receipt.create', { receipt: edited, jobId: created.job._id, force: true }), (e) => e.code === 'NOT_FOUND');
+});
+
+test('后台识别：失败、重试、手动录入、删除', async () => {
+  fake.reset();
+  fake.putFile('cloud://env/b.jpg', JPEG);
+  delete process.env.DASHSCOPE_API_KEY;
+  fake.sdk.openapi.ocr.printedText = async () => ({ items: [] });
+
+  const { job } = await call('A', 'scan.create', { fileID: 'cloud://env/b.jpg', today: '2026-11-09' });
+  const res = await parseJob('A', job._id);
+  assert.equal(res.ok, false);
+  assert.equal(res.code, 'NO_TEXT');
+  let item = (await call('A', 'scan.list')).list[0];
+  assert.equal(item.status, 'failed');
+  assert.match(item.errorMessage, /没有识别到文字/);
+
+  // 失败的任务可以带着图片手动录入
+  const manual = await call('A', 'scan.get', { id: job._id });
+  assert.deepEqual(manual.draft, { imageFileID: 'cloud://env/b.jpg', date: '2026-11-09', items: [], source: 'manual' });
+
+  // 重试：回到识别中，再次识别成功后旧的错误信息清空
+  await call('A', 'scan.retry', { id: job._id });
+  assert.equal((await call('A', 'scan.list')).list[0].status, 'processing');
+  useOcr(['ALDI', '05/11/2026', 'MILK 2L   3.10', 'TOTAL   3.10']);
+  await parseJob('A', job._id);
+  item = (await call('A', 'scan.list')).list[0];
+  assert.deepEqual([item.status, item.merchantName, item.errorMessage], ['ready', 'ALDI', undefined]);
+
+  // 再次识别得到的草稿整体替换旧草稿，而不是合并
+  useOcr(['IGA', '06/11/2026', 'TOTAL   9.00']);
+  await call('A', 'scan.retry', { id: job._id });
+  await parseJob('A', job._id);
+  const again = await call('A', 'scan.get', { id: job._id });
+  assert.equal(again.draft.merchant.name, 'IGA');
+  assert.deepEqual(again.draft.items, []);
+
+  // 删除任务同时删除图片
+  await call('A', 'scan.delete', { id: job._id });
+  assert.equal((await call('A', 'scan.list')).list.length, 0);
+  assert.equal(fake.hasFile('cloud://env/b.jpg'), false);
+});
+
+test('后台识别：云函数被中断时任务显示为超时；小程序可上报调用失败原因', async () => {
+  fake.reset();
+  const { job } = await call('A', 'scan.create', { fileID: 'cloud://env/c.jpg', today: '2026-11-09' });
+
+  // 调用失败（如云函数超时时间只有 3 秒）由小程序上报
+  await call('A', 'scan.fail', { id: job._id, message: '云函数 parseReceipt 运行超时。请把「超时时间」改为 60 秒' });
+  let item = (await call('A', 'scan.list')).list[0];
+  assert.equal(item.status, 'failed');
+  assert.match(item.errorMessage, /改为 60 秒/);
+  // 已经有结果的任务不会被覆盖
+  await call('A', 'scan.retry', { id: job._id });
+  fake.putFile('cloud://env/c.jpg', JPEG);
+  useOcr(['Coles', 'TOTAL 5.00']);
+  await parseJob('A', job._id);
+  await call('A', 'scan.fail', { id: job._id, message: 'late error' });
+  assert.equal((await call('A', 'scan.list')).list[0].status, 'ready');
+
+  // 没有任何回报、且超过 90 秒仍在识别中 → 视为超时
+  const second = (await call('A', 'scan.create', { fileID: 'cloud://env/d.jpg' })).job;
+  await fake.sdk.database().collection('scanJobs').doc(second._id).update({ data: { startedAt: new Date(Date.now() - 5 * 60 * 1000) } });
+  item = (await call('A', 'scan.list')).list.find((j) => j._id === second._id);
+  assert.equal(item.status, 'failed');
+  assert.match(item.errorMessage, /识别超时/);
+
+  await assert.rejects(call('A', 'scan.create', { fileID: 'not-a-cloud-file' }), (e) => e.code === 'INVALID_ARGUMENT');
 });

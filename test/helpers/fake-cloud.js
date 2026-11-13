@@ -84,6 +84,8 @@ const command = {
   in: (v) => new Cmd('in', v),
   push: (v) => new Cmd('push', v),
   inc: (v) => new Cmd('inc', v),
+  set: (v) => new Cmd('set', v),
+  remove: () => new Cmd('remove'),
   and: (list) => new Cmd('qand', list),
   or: (list) => new Cmd('qor', list),
   aggregate: {}
@@ -173,6 +175,13 @@ function applyUpdate(doc, data) {
       setPath(doc, k, arr.concat(clone(v.arg)));
     } else if (v instanceof Cmd && v.op === 'inc') {
       setPath(doc, k, (valuesAt(doc, k)[0] || 0) + v.arg);
+    } else if (v instanceof Cmd && v.op === 'set') {
+      setPath(doc, k, clone(v.arg));
+    } else if (v instanceof Cmd && v.op === 'remove') {
+      delete doc[k];
+    } else if (v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Date) && !(v instanceof Cmd)) {
+      // 与真实云数据库一致：update 传入对象时是“合并”子字段而不是整体替换（整体替换要用 _.set）
+      Object.keys(v).forEach((sub) => applyUpdate(doc, { [k + '.' + sub]: v[sub] }));
     } else {
       setPath(doc, k, clone(v));
     }
