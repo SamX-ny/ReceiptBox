@@ -7,9 +7,19 @@
 
 const config = require('../config');
 const dates = require('../shared/dates');
+const errors = require('./errors');
 
 function toast(message) {
   wx.showToast({ title: String(message || '操作失败').slice(0, 30), icon: 'none', duration: 2500 });
+}
+
+/** 业务错误用轻提示；云函数调用失败的排查信息较长，用弹窗完整显示 */
+function showError(err) {
+  if (err.code === 'NETWORK') {
+    wx.showModal({ title: '出错了', content: err.message, showCancel: false });
+  } else {
+    toast(err.message);
+  }
 }
 
 function call(action, params, opts) {
@@ -28,9 +38,9 @@ function call(action, params, opts) {
     .catch((err) => {
       if (!err.code) {
         console.error('callFunction failed', action, err);
-        err = Object.assign(new Error(/timeout/i.test(err.errMsg || '') ? '网络超时，请重试' : '网络异常，请重试'), { code: 'NETWORK' });
+        err = Object.assign(new Error(errors.describeCallError(err, 'api')), { code: 'NETWORK' });
       }
-      if (!opts.silent) toast(err.message);
+      if (!opts.silent) showError(err);
       throw err;
     })
     .finally(() => {
@@ -104,7 +114,7 @@ function parseReceipt(fileID) {
       return r;
     }, (err) => {
       console.error('parseReceipt failed', err);
-      const e = new Error(/timeout|time out/i.test(err.errMsg || '') ? '识别超时，请重试' : '识别服务暂不可用');
+      const e = new Error(errors.describeCallError(err, 'parseReceipt'));
       e.code = 'NETWORK';
       throw e;
     });
