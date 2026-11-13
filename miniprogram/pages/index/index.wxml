@@ -51,6 +51,7 @@
             <text>{{item.title}}</text>
           </view>
           <view class="scan-sub {{item.status === 'failed' ? '' : 'ellipsis'}}">{{item.sub}}</view>
+          <view wx:if="{{item.duplicate}}" class="scan-dup">⚠️ {{item.duplicate}}</view>
         </view>
         <text wx:if="{{item.status === 'ready'}}" class="scan-go">核对 ›</text>
       </view>

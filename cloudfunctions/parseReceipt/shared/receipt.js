@@ -234,7 +234,30 @@ function buildPriceRecords(receipt, ctx) {
   return records;
 }
 
+/**
+ * 商户名的比较键：只忽略大小写、空格和标点这类写法差异。
+ * 'Woolworths' 与 'WOOLWORTHS ' 相同；'Woolworths' 与 'Woolworths Metro' 是不同商户。
+ */
+function merchantKey(name) {
+  return product.slug(name).replace(/-/g, '');
+}
+
+/**
+ * 两张小票是否可能是同一张：同一天、金额相同、商户相同；
+ * 两边都有时间时，时间也必须相同。a、b 需要有 date / total / time / merchant.name。
+ */
+function isSameReceipt(a, b) {
+  if (!a || !b) return false;
+  if (a.date !== b.date) return false;
+  if (round(num(a.total, NaN)) !== round(num(b.total, NaN))) return false;
+  if (merchantKey(a.merchant && a.merchant.name) !== merchantKey(b.merchant && b.merchant.name)) return false;
+  if (a.time && b.time && a.time !== b.time) return false;
+  return true;
+}
+
 module.exports = {
+  merchantKey: merchantKey,
+  isSameReceipt: isSameReceipt,
   ITEM_UNITS: ITEM_UNITS,
   num: num,
   sanitizeItem: sanitizeItem,

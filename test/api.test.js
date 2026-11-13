@@ -337,3 +337,83 @@ test('后台识别：云函数被中断时任务显示为超时；小程序可�
 
   await assert.rejects(call('A', 'scan.create', { fileID: 'not-a-cloud-file' }), (e) => e.code === 'INVALID_ARGUMENT');
 });
+
+// ===== 去重 =====
+
+test('去重：保存时忽略商户名大小写与空格；Woolworths 与 Woolworths Metro 不算重复', async () => {
+  fake.reset();
+  const first = await call('A', 'receipt.create', { receipt: receipt('Woolworths', '2026-11-08', [coke(4)], { time: '18:32' }) });
+
+  const sameDifferentCase = await call('A', 'receipt.create', { receipt: receipt(' WOOLWORTHS ', '2026-11-08', [coke(4)], { time: '18:32' }) });
+  assert.equal(sameDifferentCase.duplicateOf, first._id);
+
+  // 没识别出时间也算重复；时间不同则是两笔消费
+  assert.equal((await call('A', 'receipt.create', { receipt: receipt('woolworths', '2026-11-08', [coke(4)]) })).duplicateOf, first._id);
+  assert.ok((await call('A', 'receipt.create', { receipt: receipt('Woolworths', '2026-11-08', [coke(4)], { time: '20:10' }) }))._id);
+
+  // 不同门店品牌：直接保存，不提醒
+  const metro = await call('A', 'receipt.create', { receipt: receipt('Woolworths Metro', '2026-11-08', [coke(4)], { time: '18:32' }) });
+  assert.ok(metro._id);
+  assert.equal(metro.duplicateOf, undefined);
+
+  // 用户确认后可以强制保存
+  assert.ok((await call('A', 'receipt.create', { receipt: receipt('Woolworths', '2026-11-08', [coke(4)], { time: '18:32' }), force: true }))._id);
+});
+
+test('去重：编辑时改成与另一张相同才提醒', async () => {
+  fake.reset();
+  const a = await call('A', 'receipt.create', { receipt: receipt('Coles', '2026-11-03', [coke(4.5)]) });
+  const b = await call('A', 'receipt.create', { receipt: receipt('Coles', '2026-11-04', [coke(4.5)]) });
+  const docB = await call('A', 'receipt.get', { id: b._id });
+
+  // 只改备注：不检查
+  assert.equal((await call('A', 'receipt.update', { id: b._id, receipt: Object.assign({}, docB, { note: 'x' }) }))._id, b._id);
+  // 把日期改成和 a 同一天：提醒，且数据没有被改动
+  const res = await call('A', 'receipt.update', { id: b._id, receipt: Object.assign({}, docB, { date: '2026-11-03' }) });
+  assert.equal(res.duplicateOf, a._id);
+  assert.equal((await call('A', 'receipt.get', { id: b._id })).date, '2026-11-04');
+  // 确认后强制保存
+  await call('A', 'receipt.update', { id: b._id, receipt: Object.assign({}, docB, { date: '2026-11-03' }), force: true });
+  assert.equal((await call('A', 'receipt.get', { id: b._id })).date, '2026-11-03');
+  // 之后再编辑别的字段，不会因为已有“双胞胎”而反复提醒
+  const docB2 = await call('A', 'receipt.get', { id: b._id });
+  assert.equal((await call('A', 'receipt.update', { id: b._id, receipt: Object.assign({}, docB2, { note: 'y' }) }))._id, b._id);
+});
+
+test('去重：识别完成后就在待确认列表里标出可能重复', async () => {
+  fake.reset();
+  useOcr(['Coles', '03/11/2026 10:01', 'COKE CLASSIC 2L   4.50', 'TOTAL   4.50']);
+  const scanOnce = async (file) => {
+    fake.putFile(file, JPEG);
+    const { job } = await call('A', 'scan.create', { fileID: file, today: '2026-11-09' });
+    await parseJob('A', job._id);
+    return job._id;
+  };
+
+  // 同一张小票上传了两次：较晚的一张标为与待确认的重复
+  const j1 = await scanOnce('cloud://env/1.jpg');
+  const j2 = await scanOnce('cloud://env/2.jpg');
+  let list = (await call('A', 'scan.list')).list;
+  const flag = (id) => list.find((j) => j._id === id).duplicate;
+  assert.equal(flag(j1), '');
+  assert.equal(flag(j2), 'pending');
+  assert.equal((await call('A', 'scan.get', { id: j2 })).duplicateOf, '');
+
+  // 保存第一张后，第二张标为与已保存的小票重复，并能指向那张小票
+  const draft = (await call('A', 'scan.get', { id: j1 })).draft;
+  const saved = await call('A', 'receipt.create', { receipt: draft, jobId: j1 });
+  list = (await call('A', 'scan.list')).list;
+  assert.equal(list.length, 1);
+  assert.deepEqual([list[0].duplicate, list[0].duplicateOf], ['saved', saved._id]);
+  assert.equal((await call('A', 'scan.get', { id: j2 })).duplicateOf, saved._id);
+  // 保存第二张时仍会提醒
+  const draft2 = (await call('A', 'scan.get', { id: j2 })).draft;
+  assert.equal((await call('A', 'receipt.create', { receipt: draft2, jobId: j2 })).duplicateOf, saved._id);
+  assert.equal((await call('A', 'scan.list')).list.length, 1, '提醒后任务仍保留');
+
+  // 不同的小票不标记
+  useOcr(['ALDI', '05/11/2026', 'MILK 2L   3.10', 'TOTAL   3.10']);
+  const j3 = await scanOnce('cloud://env/3.jpg');
+  list = (await call('A', 'scan.list')).list;
+  assert.equal(flag(j3), '');
+});

@@ -52,6 +52,7 @@ Page({
     mode: 'create',
     id: '',
     jobId: '',
+    duplicateOf: '',
     loading: false,
     saving: false,
     warnings: [],
@@ -104,6 +105,7 @@ Page({
       this.fill(job.draft);
       this.setData({
         imageUrl: job.imageUrl || '',
+        duplicateOf: job.duplicateOf || '',
         warnings: job.warnings || [],
         engine: engine,
         engineHint: engine === 'qwen' || engine === 'claude' ? 'AI 识别结果，请核对后保存'
@@ -314,7 +316,11 @@ Page({
     this.setData({ saving: true });
     try {
       if (this.data.mode === 'edit') {
-        await api.call('receipt.update', { id: this.data.id, receipt: payload }, { loading: '保存中' });
+        const updated = await api.call('receipt.update', { id: this.data.id, receipt: payload, force: force === true }, { loading: '保存中' });
+        if (updated.duplicateOf) {
+          this.askDuplicate(updated.duplicateOf);
+          return;
+        }
         this.done();
         wx.navigateBack();
         return;
@@ -326,16 +332,7 @@ Page({
         jobId: this.data.jobId || undefined
       }, { loading: '保存中' });
       if (res.duplicateOf) {
-        const confirm = await new Promise((resolve) => wx.showModal({
-          title: '可能重复',
-          content: '同一天已有一张相同商户、相同金额的小票，仍然保存吗？',
-          confirmText: '仍然保存',
-          cancelText: '去看看',
-          success: (r) => resolve(r.confirm)
-        }));
-        this.setData({ saving: false });
-        if (confirm) this.onSave(true);
-        else wx.navigateTo({ url: '/pages/receipt-detail/index?id=' + res.duplicateOf });
+        this.askDuplicate(res.duplicateOf);
         return;
       }
       this.done();
@@ -345,6 +342,24 @@ Page({
     } finally {
       this.setData({ saving: false });
     }
+  },
+
+  /** 保存时发现可能重复：让用户决定仍然保存，还是去看已有的那张 */
+  askDuplicate(duplicateId) {
+    wx.showModal({
+      title: '可能重复',
+      content: '同一天已有一张相同商户、相同金额的小票，仍然保存吗？',
+      confirmText: '仍然保存',
+      cancelText: '去看看',
+      success: (r) => {
+        if (r.confirm) this.onSave(true);
+        else if (r.cancel) wx.navigateTo({ url: '/pages/receipt-detail/index?id=' + duplicateId });
+      }
+    });
+  },
+
+  onViewDuplicate() {
+    wx.navigateTo({ url: '/pages/receipt-detail/index?id=' + this.data.duplicateOf });
   },
 
   done() {

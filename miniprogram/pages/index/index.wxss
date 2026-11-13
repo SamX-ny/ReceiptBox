@@ -98,6 +98,16 @@
   margin-top: 4rpx;
 }
 
+.scan-dup {
+  display: inline-block;
+  margin-top: 8rpx;
+  padding: 2rpx 14rpx;
+  border-radius: 8rpx;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-size: 22rpx;
+}
+
 .scan.failed .scan-title {
   color: var(--bad);
 }

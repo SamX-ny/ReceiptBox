@@ -14,6 +14,7 @@
 
 const { cloud, db, AppError, isNotFound } = require('./db');
 const dates = require('../shared/dates');
+const receiptLib = require('../shared/receipt');
 
 // parseReceipt 最长运行 60 秒；超过这个时间还在“识别中”，说明云函数被中断了
 const STALE_MS = 90 * 1000;
@@ -62,6 +63,30 @@ async function tempUrls(fileIDs) {
   return map;
 }
 
+/**
+ * 给识别完成的任务标出“可能重复”：
+ *   saved   已保存的小票里有同一张（duplicateOf 为那张小票的 _id）
+ *   pending 待确认列表里更早的一张是同一张小票（同一张照片上传了两次）
+ * 返回 { jobId: { duplicate, duplicateOf } }
+ */
+async function duplicateFlags(ctx, jobs, now) {
+  const ready = jobs.filter(function (j) { return effectiveStatus(j, now) === 'ready' && j.draft; });
+  const flags = {};
+  if (!ready.length) return flags;
+  // 延迟加载，避免与 receipts.js 循环依赖
+  const saved = await require('./receipts').findDuplicatesFor(ctx.family._id, ready.map(function (j) { return j.draft; }));
+  const oldestFirst = ready.slice().sort(function (a, b) { return new Date(a.createdAt) - new Date(b.createdAt); });
+  oldestFirst.forEach(function (job, i) {
+    const savedId = saved[ready.indexOf(job)];
+    if (savedId) {
+      flags[job._id] = { duplicate: 'saved', duplicateOf: savedId };
+    } else if (oldestFirst.slice(0, i).some(function (earlier) { return receiptLib.isSameReceipt(job.draft, earlier.draft); })) {
+      flags[job._id] = { duplicate: 'pending', duplicateOf: '' };
+    }
+  });
+  return flags;
+}
+
 async function getOwnedJob(ctx, id) {
   if (!id) throw new AppError('INVALID_ARGUMENT', '缺少识别任务 ID');
   let job;
@@ -103,7 +128,12 @@ async function list(ctx) {
     .get();
   const urls = await tempUrls(res.data.map(function (j) { return j.imageFileID; }));
   const now = Date.now();
-  return { list: res.data.map(function (j) { return publicJob(j, now, urls[j.imageFileID]); }) };
+  const flags = await duplicateFlags(ctx, res.data, now);
+  return {
+    list: res.data.map(function (j) {
+      return Object.assign(publicJob(j, now, urls[j.imageFileID]), flags[j._id] || { duplicate: '', duplicateOf: '' });
+    })
+  };
 }
 
 /** 确认页使用：返回识别草稿；失败或未完成的任务返回只带图片的空草稿，供手动录入 */
@@ -112,8 +142,10 @@ async function get(ctx, params) {
   const status = effectiveStatus(job, Date.now());
   const urls = await tempUrls([job.imageFileID]);
   const ready = status === 'ready' && job.draft;
+  const duplicateOf = ready ? await require('./receipts').findDuplicate(ctx.family._id, job.draft) : null;
   return {
     _id: job._id,
+    duplicateOf: duplicateOf || '',
     status: status,
     engine: ready ? (job.engine || '') : '',
     imageUrl: urls[job.imageFileID] || '',

@@ -80,3 +80,19 @@ test('buildPriceRecords: 应用商品别名', () => {
   assert.equal(records[1].measurePrice, 3.9);
   assert.equal(records[2].measurePrice, 1.55);
 });
+
+test('merchantKey / isSameReceipt: 只忽略大小写、空格和标点', () => {
+  assert.equal(receiptLib.merchantKey('Woolworths'), receiptLib.merchantKey(' WOOLWORTHS '));
+  assert.equal(receiptLib.merchantKey("McDonald's"), receiptLib.merchantKey('mcdonalds'));
+  assert.notEqual(receiptLib.merchantKey('Woolworths'), receiptLib.merchantKey('Woolworths Metro'));
+
+  const base = { merchant: { name: 'Woolworths' }, date: '2026-11-08', time: '18:32', total: 15.64 };
+  const same = (patch) => receiptLib.isSameReceipt(base, Object.assign({}, base, patch));
+  assert.equal(same({}), true);
+  assert.equal(same({ merchant: { name: 'WOOL WORTHS' } }), true);
+  assert.equal(same({ time: '' }), true, '一边没有时间时不比较时间');
+  assert.equal(same({ merchant: { name: 'Woolworths Metro' } }), false, '不同门店品牌不算同一张');
+  assert.equal(same({ time: '09:00' }), false);
+  assert.equal(same({ total: 15.65 }), false);
+  assert.equal(same({ date: '2026-11-09' }), false);
+});

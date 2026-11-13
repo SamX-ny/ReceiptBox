@@ -165,3 +165,8 @@
 .save-btn {
   width: 100% !important;
 }
+
+.dup-banner {
+  display: flex;
+  align-items: center;
+}

@@ -50,17 +50,39 @@ async function getOwned(ctx, id) {
   return doc;
 }
 
+/**
+ * 查找可能重复的小票（规则见 receiptLib.isSameReceipt）。
+ * 商户名在内存里比较，这样大小写、空格不同的写法也能认出来。
+ */
 async function findDuplicate(familyId, receipt, excludeId) {
   const res = await db.collection('receipts').where({
     familyId: familyId,
     date: receipt.date,
-    total: receipt.total,
-    'merchant.name': receipt.merchant.name
-  }).field({ _id: true, time: true }).limit(5).get();
+    total: receipt.total
+  }).field({ _id: true, date: true, time: true, total: true, merchant: true }).limit(50).get();
   const hit = res.data.find(function (r) {
-    return r._id !== excludeId && (!receipt.time || !r.time || r.time === receipt.time);
+    return r._id !== excludeId && receiptLib.isSameReceipt(receipt, r);
   });
   return hit ? hit._id : null;
+}
+
+/**
+ * 批量版本：给多张草稿各找一张可能重复的已保存小票，只查询一次数据库。
+ * 返回与 drafts 等长的数组，元素为小票 _id 或 null。
+ */
+async function findDuplicatesFor(familyId, drafts) {
+  const dateSet = {};
+  drafts.forEach(function (d) { if (d && d.date) dateSet[d.date] = true; });
+  const dateList = Object.keys(dateSet);
+  if (!dateList.length) return drafts.map(function () { return null; });
+  const candidates = await fetchAll(
+    db.collection('receipts').where({ familyId: familyId, date: _.in(dateList) }),
+    { field: { _id: true, date: true, time: true, total: true, merchant: true }, max: 2000 }
+  );
+  return drafts.map(function (d) {
+    const hit = d && candidates.find(function (r) { return receiptLib.isSameReceipt(d, r); });
+    return hit ? hit._id : null;
+  });
 }
 
 async function create(ctx, params) {
@@ -102,6 +124,13 @@ async function update(ctx, params) {
     { defaultDate: existing.date }
   );
   const receipt = sanitized.receipt;
+  // 只有改动了日期 / 金额 / 商户，才检查是否与别的小票重复（避免每次编辑都提醒）
+  const keyChanged = receipt.date !== existing.date || receipt.total !== existing.total ||
+    receiptLib.merchantKey(receipt.merchant.name) !== receiptLib.merchantKey(existing.merchant && existing.merchant.name);
+  if (keyChanged && !params.force) {
+    const dup = await findDuplicate(existing.familyId, receipt, existing._id);
+    if (dup) return { duplicateOf: dup };
+  }
   // 用 set 覆盖整条记录（保留归属与创建信息），避免嵌套数组残留旧字段
   await db.collection('receipts').doc(existing._id).set({
     data: Object.assign({}, receipt, derivedFields(receipt), {
@@ -189,6 +218,8 @@ async function list(ctx, params) {
 
 module.exports = {
   loadAliases: loadAliases,
+  findDuplicate: findDuplicate,
+  findDuplicatesFor: findDuplicatesFor,
   actions: {
     'receipt.create': create,
     'receipt.update': update,

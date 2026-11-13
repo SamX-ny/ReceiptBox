@@ -91,7 +91,11 @@ Page({
         : '识别失败',
       sub: j.status === 'processing' ? '一般需要 10～30 秒，可以先去做别的'
         : j.status === 'ready' ? format.money(j.total) + ' · ' + j.itemCount + ' 件商品 · 点击核对并保存'
-        : j.errorMessage
+        : j.errorMessage,
+      // 可能重复：已保存过同一张，或待确认列表里上传了两次
+      duplicate: j.duplicate === 'saved' ? '可能重复：已保存过同一张小票'
+        : j.duplicate === 'pending' ? '可能重复：和上面另一张待确认的是同一张'
+        : ''
     }));
     const scans = locals.concat(remotes);
     this.setData({ scans: scans });
