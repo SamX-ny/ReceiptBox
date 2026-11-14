@@ -1,0 +1,89 @@
+.merchant {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.total {
+  font-size: 76rpx;
+  letter-spacing: -1rpx;
+  line-height: 1.25;
+  font-weight: 700;
+  margin-top: 24rpx;
+}
+
+.meta-grid {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 20rpx 0 8rpx;
+}
+
+.meta {
+  margin: 0 12rpx 12rpx 0;
+  padding: 6rpx 18rpx;
+  color: var(--text-primary);
+}
+
+.note {
+  margin-top: 12rpx;
+  color: var(--text-secondary);
+}
+
+.photo-card {
+  position: relative;
+  padding: 0;
+  height: 240rpx;
+  overflow: hidden;
+}
+
+.photo {
+  width: 100%;
+  height: 100%;
+}
+
+.photo-hint {
+  position: absolute;
+  right: 20rpx;
+  bottom: 20rpx;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  padding: 6rpx 18rpx;
+  border-radius: 20rpx;
+}
+
+.group + .group {
+  margin-top: 24rpx;
+}
+
+.group-head {
+  padding: 8rpx 0 4rpx;
+}
+
+.item {
+  padding: 16rpx 0 16rpx 84rpx;
+  border-bottom: 1rpx solid var(--border);
+}
+
+.group .item:last-child {
+  border-bottom: none;
+}
+
+.hover {
+  opacity: 0.6;
+}
+
+.spec {
+  margin-left: 10rpx;
+}
+
+.price {
+  margin-left: 16rpx;
+  font-weight: 500;
+}
+
+.actions {
+  margin-top: 8rpx;
+}
+
+.meta .muted {
+  margin-right: 8rpx;
+}

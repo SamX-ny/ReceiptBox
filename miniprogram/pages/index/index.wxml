@@ -1,0 +1,122 @@
+<view class="container">
+  <!-- 本月概览 -->
+  <view class="hero">
+    <view class="hero-deco d1"></view>
+    <view class="hero-deco d2"></view>
+    <view class="row between">
+      <view class="hero-label">{{overview.monthLabel || '本月'}}支出</view>
+      <view wx:if="{{familyName}}" class="hero-family">🏠 {{familyName}}</view>
+    </view>
+    <view class="hero-amount num">{{overview ? overview.monthTotal : '--'}}</view>
+    <view wx:if="{{overview}}" class="hero-sub">
+      <text>上月 {{overview.lastMonth}}</text>
+      <text wx:if="{{overview.change !== null}}" class="hero-delta"> {{overview.change > 0 ? '▲' : '▼'}} {{overview.changeText}}</text>
+      <text> · {{overview.monthCount}} 张小票</text>
+    </view>
+    <view class="hero-stats">
+      <view class="hero-stat">
+        <view class="hero-stat-label">今天</view>
+        <view class="hero-stat-value num">{{overview ? overview.today : '--'}}</view>
+      </view>
+      <view class="hero-stat">
+        <view class="hero-stat-label">本周</view>
+        <view class="hero-stat-value num">{{overview ? overview.week : '--'}}</view>
+      </view>
+      <view class="hero-stat">
+        <view class="hero-stat-label">日均</view>
+        <view class="hero-stat-value num">{{overview ? overview.avgPerDay : '--'}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 记账入口 -->
+  <view class="actions card">
+    <view class="action" bindtap="onCamera" hover-class="btn-hover">
+      <view class="action-icon primary"><image class="action-img" src="/images/icons/camera.png" /></view>
+      <view class="action-label bold">拍小票</view>
+    </view>
+    <view class="action" bindtap="onAlbum" hover-class="btn-hover">
+      <view class="action-icon album"><image class="action-img" src="/images/icons/album.png" /></view>
+      <view class="action-label">从相册选</view>
+    </view>
+    <view class="action" bindtap="onManual" hover-class="btn-hover">
+      <view class="action-icon manual"><image class="action-img" src="/images/icons/edit.png" /></view>
+      <view class="action-label">手动记一笔</view>
+    </view>
+  </view>
+
+  <!-- 待确认小票：后台上传 / 识别的进度与结果 -->
+  <view class="card" wx:if="{{scans.length}}">
+    <view class="card-title">
+      <text>待确认小票 · {{scans.length}}</text>
+      <text class="more">识别在后台进行</text>
+    </view>
+    <view wx:for="{{scans}}" wx:key="key" class="job {{item.status}}">
+      <view class="job-main" data-index="{{index}}" bindtap="onScanTap" hover-class="{{item.status === 'ready' ? 'btn-hover' : ''}}">
+        <image class="job-thumb" src="{{item.thumb}}" mode="aspectFill" />
+        <view class="flex-1">
+          <view class="row">
+            <view class="job-title ellipsis flex-1">{{item.title}}</view>
+            <view class="job-chip {{item.status}}">
+              <text wx:if="{{item.status === 'uploading' || item.status === 'processing'}}" class="spinner"></text>{{item.chip}}
+            </view>
+          </view>
+          <view class="job-sub {{item.status === 'failed' ? '' : 'ellipsis'}}">{{item.sub}}</view>
+          <view wx:if="{{item.duplicate}}" class="job-dup">⚠️ {{item.duplicate}}</view>
+        </view>
+      </view>
+      <view wx:if="{{item.status === 'failed'}}" class="job-actions">
+        <view class="job-btn primary" data-index="{{index}}" bindtap="onScanRetry">重试</view>
+        <view class="job-btn" data-index="{{index}}" bindtap="onScanManual">手动录入</view>
+        <view class="job-btn danger" data-index="{{index}}" bindtap="onScanDelete">删除</view>
+      </view>
+      <view wx:elif="{{item.status === 'ready'}}" class="job-actions">
+        <view class="job-btn danger" data-index="{{index}}" bindtap="onScanDelete">删除</view>
+        <view class="job-btn primary" data-index="{{index}}" bindtap="onScanTap">核对并保存</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 本月趋势 -->
+  <view class="card" wx:if="{{overview}}">
+    <view class="card-title">
+      <text>每日支出</text>
+      <text class="more" bindtap="goStats">统计详情 ›</text>
+    </view>
+    <rb-chart type="bar" data="{{overview.series}}" height="300" emptyText="本月还没有记录" />
+  </view>
+
+  <!-- 分类 Top5 -->
+  <view class="card" wx:if="{{overview && overview.categories.length}}">
+    <view class="card-title">
+      <text>本月花在哪</text>
+      <text class="more" bindtap="goStats">全部 ›</text>
+    </view>
+    <view class="rank-row" wx:for="{{overview.categories}}" wx:key="id">
+      <view class="icon-badge sm" style="background: {{item.tint}}">{{item.icon}}</view>
+      <view class="flex-1">
+        <view class="row between">
+          <text class="rank-name">{{item.name}}</text>
+          <text class="rank-amount">{{item.amount}}</text>
+        </view>
+        <view class="rank-meta">
+          <view class="rank-bar-track flex-1"><view class="rank-bar" style="width: {{item.width}}%"></view></view>
+          <text class="rank-pct">{{item.percent}}%</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 最近小票 -->
+  <view class="card">
+    <view class="card-title">
+      <text>最近小票</text>
+      <text class="more" bindtap="goReceipts">全部 ›</text>
+    </view>
+    <view wx:if="{{!loading && !recent.length}}" class="empty">
+      <view class="empty-icon">🧾</view>
+      <view>还没有小票，拍一张试试吧</view>
+    </view>
+    <rb-receipt-item wx:for="{{recent}}" wx:key="_id" receipt="{{item}}" showDate="{{true}}" />
+  </view>
+</view>

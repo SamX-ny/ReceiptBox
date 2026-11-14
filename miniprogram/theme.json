@@ -1,0 +1,40 @@
+{
+  "light": {
+    "navBg": "#f6f6f3",
+    "navText": "black",
+    "bgColor": "#f6f6f3",
+    "tabBg": "#ffffff",
+    "tabText": "#7a7974",
+    "tabSelected": "#1f7a5c",
+    "tabBorder": "white",
+    "iconHome": "images/tab/home.png",
+    "iconHomeActive": "images/tab/home-active.png",
+    "iconList": "images/tab/list.png",
+    "iconListActive": "images/tab/list-active.png",
+    "iconStats": "images/tab/stats.png",
+    "iconStatsActive": "images/tab/stats-active.png",
+    "iconPrice": "images/tab/price.png",
+    "iconPriceActive": "images/tab/price-active.png",
+    "iconMine": "images/tab/mine.png",
+    "iconMineActive": "images/tab/mine-active.png"
+  },
+  "dark": {
+    "navBg": "#121211",
+    "navText": "white",
+    "bgColor": "#121211",
+    "tabBg": "#1a1a19",
+    "tabText": "#9b9a94",
+    "tabSelected": "#4cc79a",
+    "tabBorder": "black",
+    "iconHome": "images/tab/home-dark.png",
+    "iconHomeActive": "images/tab/home-active-dark.png",
+    "iconList": "images/tab/list-dark.png",
+    "iconListActive": "images/tab/list-active-dark.png",
+    "iconStats": "images/tab/stats-dark.png",
+    "iconStatsActive": "images/tab/stats-active-dark.png",
+    "iconPrice": "images/tab/price-dark.png",
+    "iconPriceActive": "images/tab/price-active-dark.png",
+    "iconMine": "images/tab/mine-dark.png",
+    "iconMineActive": "images/tab/mine-active-dark.png"
+  }
+}

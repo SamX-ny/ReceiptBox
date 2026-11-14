@@ -1,0 +1,41 @@
+.list {
+  margin-top: 24rpx;
+}
+
+.product {
+  padding: 26rpx 28rpx 22rpx;
+  margin-bottom: 18rpx;
+}
+
+.name {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.spec {
+  margin-left: 10rpx;
+}
+
+.price-col {
+  text-align: right;
+  margin-left: 16rpx;
+}
+
+.price {
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.foot {
+  margin-top: 18rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid var(--border);
+}
+
+.foot .tag {
+  margin-right: 12rpx;
+}
+
+.range {
+  text-align: right;
+}

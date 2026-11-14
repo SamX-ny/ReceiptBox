@@ -1,0 +1,121 @@
+<view class="container page">
+  <view wx:if="{{duplicateOf}}" class="warn-banner dup-banner" bindtap="onViewDuplicate">
+    <text class="flex-1">⚠️ 可能重复：同一天已保存过一张相同商户、相同金额的小票</text>
+    <text class="link">查看 ›</text>
+  </view>
+  <view wx:for="{{warnings}}" wx:key="*this" class="warn-banner">⚠️ {{item}}</view>
+
+  <view wx:if="{{imageFileID}}" class="thumb-row card" bindtap="onPreviewImage">
+    <image class="thumb" src="{{imageUrl || imageFileID}}" mode="aspectFill" />
+    <view class="flex-1">
+      <view class="bold">小票照片</view>
+      <view class="muted small">{{engineHint}}</view>
+    </view>
+    <text class="muted">›</text>
+  </view>
+
+  <!-- 基本信息 -->
+  <view class="card form">
+    <view class="field">
+      <text class="label">商户</text>
+      <input class="input" placeholder="如 Woolworths、Coles" value="{{form.merchantName}}" data-field="merchantName" bindinput="onInput" />
+    </view>
+    <view class="field">
+      <text class="label">门店</text>
+      <input class="input" placeholder="分店 / 地点（可选）" value="{{form.branch}}" data-field="branch" bindinput="onInput" />
+    </view>
+    <picker range="{{merchantTypeNames}}" value="{{form.merchantTypeIndex}}" bindchange="onMerchantType">
+      <view class="field">
+        <text class="label">类型</text>
+        <view class="input picker">{{merchantTypeNames[form.merchantTypeIndex]}}</view>
+        <text class="muted">›</text>
+      </view>
+    </picker>
+    <view class="field">
+      <text class="label">时间</text>
+      <picker mode="date" value="{{form.date}}" end="{{today}}" bindchange="onDate" class="flex-1">
+        <view class="input picker">{{form.date}}</view>
+      </picker>
+      <picker mode="time" value="{{form.time || '12:00'}}" bindchange="onTime">
+        <view class="input picker time">{{form.time || '时间'}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <text class="label">实付</text>
+      <input class="input amount num" type="digit" placeholder="0.00" value="{{form.total}}" data-field="total" bindinput="onInput" />
+      <text class="muted">AUD</text>
+    </view>
+    <view class="field">
+      <text class="label">GST</text>
+      <input class="input num" type="digit" placeholder="含税金额（可选）" value="{{form.tax}}" data-field="tax" bindinput="onInput" />
+    </view>
+    <view class="field">
+      <text class="label">支付</text>
+      <input class="input" placeholder="EFTPOS / Visa / 现金（可选）" value="{{form.paymentMethod}}" data-field="paymentMethod" bindinput="onInput" />
+    </view>
+    <picker wx:if="{{!items.length}}" range="{{categoryNames}}" value="{{form.categoryIndex}}" bindchange="onReceiptCategory">
+      <view class="field">
+        <text class="label">分类</text>
+        <view class="input picker">{{categoryNames[form.categoryIndex]}}</view>
+        <text class="muted">›</text>
+      </view>
+    </picker>
+    <view class="field">
+      <text class="label">备注</text>
+      <input class="input" placeholder="可选" value="{{form.note}}" data-field="note" bindinput="onInput" />
+    </view>
+  </view>
+
+  <!-- 商品明细 -->
+  <view class="card">
+    <view class="card-title">
+      <text>商品明细 · {{items.length}}</text>
+      <text class="more">合计 {{itemsSum}}</text>
+    </view>
+    <view wx:if="{{diffText}}" class="diff small">
+      <text>实付{{diffText}}</text>
+      <text class="link" bindtap="useItemsSum">用合计</text>
+    </view>
+
+    <view wx:for="{{items}}" wx:key="key" class="item">
+      <view class="row">
+        <picker range="{{categoryNames}}" value="{{item.catIndex}}" data-index="{{index}}" bindchange="onItemCategory">
+          <view class="cat-btn" style="background: {{item.catTint}}">{{item.catIcon}}</view>
+        </picker>
+        <input class="item-name flex-1" placeholder="商品名称" value="{{item.name}}" data-index="{{index}}" data-field="name" bindinput="onItemInput" />
+        <view class="remove" data-index="{{index}}" bindtap="removeItem">✕</view>
+      </view>
+      <view class="row item-nums">
+        <view class="mini">
+          <text class="mini-label">规格</text>
+          <input class="mini-input" placeholder="2L" value="{{item.spec}}" data-index="{{index}}" data-field="spec" bindinput="onItemInput" />
+        </view>
+        <view class="mini">
+          <text class="mini-label">数量</text>
+          <view class="row">
+            <input class="mini-input num" type="digit" value="{{item.quantity}}" data-index="{{index}}" data-field="quantity" bindinput="onItemInput" />
+            <picker range="{{unitNames}}" value="{{item.unitIndex}}" data-index="{{index}}" bindchange="onItemUnit">
+              <text class="unit">{{item.unitName}}</text>
+            </picker>
+          </view>
+        </view>
+        <view class="mini">
+          <text class="mini-label">单价</text>
+          <input class="mini-input num" type="digit" placeholder="0.00" value="{{item.unitPrice}}" data-index="{{index}}" data-field="unitPrice" bindinput="onItemInput" />
+        </view>
+        <view class="mini">
+          <text class="mini-label">小计</text>
+          <input class="mini-input num bold" type="digit" placeholder="0.00" value="{{item.totalPrice}}" data-index="{{index}}" data-field="totalPrice" bindinput="onItemInput" />
+        </view>
+      </view>
+      <view class="muted tiny">{{item.catName}}<text wx:if="{{item.discount}}"> · 已优惠 ${{item.discount}}</text></view>
+    </view>
+
+    <view class="add-item" bindtap="addItem">＋ 添加商品</view>
+  </view>
+
+  <view class="bottom-space"></view>
+  <view class="save-bar safe-bottom">
+    <button class="btn btn-primary save-btn" hover-class="btn-hover" loading="{{saving}}" disabled="{{saving}}" bindtap="onSaveTap">保存小票</button>
+  </view>
+</view>

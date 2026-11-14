@@ -1,0 +1,4 @@
+<view class="container">
+  <view wx:if="{{range}}" class="muted small range">{{range}}</view>
+  <rb-receipt-feed wx:if="{{filter}}" id="feed" filter="{{filter}}" />
+</view>

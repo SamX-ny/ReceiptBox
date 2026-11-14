@@ -1,0 +1,53 @@
+.summary .big {
+  font-size: 72rpx;
+  font-weight: 700;
+  letter-spacing: -1rpx;
+  line-height: 1.25;
+  margin: 8rpx 0 4rpx;
+}
+
+.day-receipt {
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid var(--border);
+}
+
+.day-receipt:last-child {
+  border-bottom: none;
+}
+
+.day-items {
+  margin: 14rpx 0 0 84rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 18rpx;
+  background: var(--surface-2);
+}
+
+.day-item {
+  padding: 8rpx 0;
+}
+
+.day-item-icon {
+  width: 48rpx;
+}
+
+.cat-label {
+  margin: 0 16rpx;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.day-item-price {
+  flex-shrink: 0;
+}
+
+.rank-no {
+  width: 40rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rank-no.top {
+  color: var(--brand);
+}

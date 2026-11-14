@@ -1,0 +1,65 @@
+<view class="container" wx:if="{{view}}">
+  <view class="card head">
+    <view class="row">
+      <view class="icon-badge lg" style="background: {{view.merchantTint}}">{{view.merchantIcon}}</view>
+      <view class="flex-1">
+        <view class="merchant">{{view.merchantName}}</view>
+        <view class="muted small">{{view.branch ? view.branch + ' · ' : ''}}{{view.merchantType}}</view>
+      </view>
+    </view>
+    <view class="total num">{{view.total}}</view>
+    <view class="muted small">{{view.date}}</view>
+    <view class="meta-grid">
+      <view wx:if="{{view.paymentMethod}}" class="meta tag"><text class="muted">支付 </text>{{view.paymentMethod}}</view>
+      <view wx:if="{{view.tax}}" class="meta tag"><text class="muted">GST </text>{{view.tax}}</view>
+      <view wx:if="{{view.discount}}" class="meta tag"><text class="muted">整单优惠 </text>{{view.discount}}</view>
+      <view class="meta tag"><text class="muted">来源 </text>{{view.source}}</view>
+      <view class="meta tag"><text class="muted">记录人 </text>{{view.createdByName}}</view>
+    </view>
+    <view wx:if="{{view.address}}" class="muted small">📍 {{view.address}}</view>
+    <view wx:if="{{view.note}}" class="note small">📝 {{view.note}}</view>
+  </view>
+
+  <view wx:if="{{r.imageUrl}}" class="card photo-card" bindtap="onPreview">
+    <image class="photo" src="{{r.imageUrl}}" mode="aspectFill" />
+    <view class="photo-hint small">查看小票原图</view>
+  </view>
+
+  <view class="card" wx:if="{{view.itemCount}}">
+    <view class="card-title">
+      <text>商品 · {{view.itemCount}}</text>
+      <text class="more">点商品查看价格走势</text>
+    </view>
+    <view wx:for="{{view.groups}}" wx:for-item="g" wx:key="id" class="group">
+      <view class="group-head row between">
+        <view class="row"><view class="icon-badge sm" style="background: {{g.tint}}">{{g.icon}}</view><text class="bold">{{g.name}}</text></view>
+        <text class="num secondary">{{g.amountText}}</text>
+      </view>
+      <view wx:for="{{g.items}}" wx:key="i" class="item row" data-key="{{item.productKey}}" bindtap="onItemTap" hover-class="hover">
+        <view class="flex-1">
+          <view class="ellipsis">{{item.name}}<text wx:if="{{item.spec}}" class="tag spec">{{item.spec}}</text></view>
+          <view class="muted tiny ellipsis">
+            <text wx:if="{{item.qty}}">{{item.qty}}</text>
+            <text wx:if="{{item.measure}}">{{item.qty ? ' · ' : ''}}{{item.measure}}</text>
+            <text wx:if="{{item.discount}}" class="down"> · 省 {{item.discount}}</text>
+            <text wx:if="{{item.rawName}}"> · {{item.rawName}}</text>
+          </view>
+        </view>
+        <text class="num price">{{item.total}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view wx:else class="card">
+    <view class="row between">
+      <text>{{view.category.icon}} {{view.category.name}}</text>
+      <text class="muted small">未录入商品明细</text>
+    </view>
+  </view>
+
+  <view class="row actions">
+    <button class="btn flex-1" hover-class="btn-hover" bindtap="onEdit">编辑</button>
+    <view style="width: 20rpx"></view>
+    <button class="btn btn-danger flex-1" hover-class="btn-hover" bindtap="onDelete">删除</button>
+  </view>
+</view>

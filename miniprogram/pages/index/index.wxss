@@ -1,0 +1,247 @@
+/* ===== 本月概览：品牌色渐变卡片 ===== */
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: 40rpx 36rpx 108rpx;
+  border-radius: 36rpx;
+  background: var(--hero);
+  color: #ffffff;
+  box-shadow: var(--shadow-brand);
+}
+
+.hero-deco {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hero-deco.d1 {
+  width: 360rpx;
+  height: 360rpx;
+  right: -120rpx;
+  top: -140rpx;
+}
+
+.hero-deco.d2 {
+  width: 220rpx;
+  height: 220rpx;
+  right: 90rpx;
+  bottom: -130rpx;
+}
+
+.hero-label {
+  font-size: 26rpx;
+  opacity: 0.88;
+}
+
+.hero-family {
+  padding: 4rpx 18rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 22rpx;
+}
+
+.hero-amount {
+  font-size: 84rpx;
+  font-weight: 700;
+  letter-spacing: -2rpx;
+  line-height: 1.2;
+  margin: 12rpx 0 4rpx;
+}
+
+.hero-sub {
+  font-size: 24rpx;
+  opacity: 0.9;
+}
+
+.hero-delta {
+  font-weight: 600;
+}
+
+.hero-stats {
+  display: flex;
+  margin: 32rpx -8rpx 0;
+}
+
+.hero-stat {
+  flex: 1;
+  margin: 0 8rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.hero-stat-label {
+  font-size: 22rpx;
+  opacity: 0.85;
+}
+
+.hero-stat-value {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+/* ===== 记账入口：压在概览卡片下沿的三个圆形按钮 ===== */
+.actions {
+  position: relative;
+  display: flex;
+  margin: -76rpx 24rpx 24rpx;
+  padding: 28rpx 12rpx 24rpx;
+}
+
+.action {
+  flex: 1;
+  text-align: center;
+}
+
+.action-icon {
+  width: 96rpx;
+  height: 96rpx;
+  margin: 0 auto 12rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-icon.primary {
+  background: linear-gradient(135deg, var(--brand-light), var(--brand));
+  box-shadow: var(--shadow-brand);
+}
+
+.action-icon.album {
+  background: linear-gradient(135deg, #5aa2f0, #2a78d6);
+}
+
+.action-icon.manual {
+  background: linear-gradient(135deg, #f5a14a, #eb6834);
+}
+
+.action-img {
+  width: 50rpx;
+  height: 50rpx;
+}
+
+.action-label {
+  font-size: 25rpx;
+  color: var(--text-secondary);
+}
+
+.action-label.bold {
+  color: var(--text-primary);
+}
+
+/* ===== 待确认小票 ===== */
+.job {
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid var(--border);
+}
+
+.job:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.job-main {
+  display: flex;
+  align-items: center;
+}
+
+.job-thumb {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 20rpx;
+  background: var(--surface-2);
+  margin-right: 22rpx;
+  flex-shrink: 0;
+}
+
+.job-title {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.job-sub {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  margin-top: 6rpx;
+}
+
+.job.failed .job-sub {
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+/* 状态小标签 */
+.job-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 16rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  background: var(--info-soft);
+  color: var(--info-text);
+}
+
+.job-chip.ready {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.job-chip.failed {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.job-dup {
+  display: inline-block;
+  margin-top: 10rpx;
+  padding: 2rpx 14rpx;
+  border-radius: 10rpx;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-size: 22rpx;
+}
+
+.job-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16rpx;
+}
+
+.job-btn {
+  padding: 10rpx 28rpx;
+  margin-left: 16rpx;
+  border-radius: 28rpx;
+  background: var(--surface-2);
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.job-btn.primary {
+  background: var(--brand);
+  color: var(--brand-text);
+  font-weight: 600;
+}
+
+.job-btn.danger {
+  color: var(--bad);
+}
+
+.spinner {
+  display: inline-block;
+  width: 20rpx;
+  height: 20rpx;
+  margin-right: 10rpx;
+  border: 4rpx solid rgba(127, 127, 127, 0.25);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

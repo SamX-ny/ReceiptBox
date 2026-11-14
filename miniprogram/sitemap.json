@@ -1,0 +1,4 @@
+{
+  "desc": "Receipt Box 页面均为个人数据，不参与搜索索引",
+  "rules": [{ "action": "disallow", "page": "*" }]
+}

@@ -1,0 +1,60 @@
+<view class="container">
+  <view class="profile" bindtap="onNickName">
+    <view class="profile-deco"></view>
+    <view class="avatar">{{nickName ? nickName[0] : '👤'}}</view>
+    <view class="flex-1">
+      <view class="bold big">{{nickName || '设置昵称'}}</view>
+      <view class="profile-sub">家人在小票上看到的记录人名字</view>
+    </view>
+    <text class="profile-arrow">›</text>
+  </view>
+
+  <view class="card" wx:if="{{family}}">
+    <view class="card-title">
+      <text>🏠 {{family.name}}</text>
+      <text class="more" bindtap="onRenameFamily">改名</text>
+    </view>
+    <view class="members">
+      <view wx:for="{{family.members}}" wx:key="index" class="member">
+        <view class="member-avatar">{{item.isMe ? '我' : item.nickName[0] || '家'}}</view>
+        <view class="tiny ellipsis member-name">{{item.isMe ? '我' : item.nickName}}{{item.isOwner ? ' · 创建者' : ''}}</view>
+      </view>
+    </view>
+
+    <view class="invite">
+      <view>
+        <view class="muted tiny">家庭邀请码</view>
+        <view class="code num">{{family.inviteCode}}</view>
+      </view>
+      <view class="row">
+        <button class="btn btn-small" hover-class="btn-hover" bindtap="onCopyCode">复制</button>
+        <view style="width: 16rpx"></view>
+        <button class="btn btn-small btn-primary" hover-class="btn-hover" open-type="share">邀请家人</button>
+      </view>
+    </view>
+    <view class="muted tiny">家人用邀请码加入后，大家拍的小票会汇总到同一个账本。</view>
+
+    <view class="links">
+      <view class="link-item" bindtap="onJoin"><text class="flex-1">🔑 输入邀请码加入其他家庭</text><text class="muted">›</text></view>
+      <view wx:if="{{family.isOwner}}" class="link-item" bindtap="onResetCode"><text class="flex-1">🔄 重置邀请码</text><text class="muted">›</text></view>
+      <view wx:if="{{!family.isPersonal}}" class="link-item danger" bindtap="onLeave"><text class="flex-1">🚪 退出这个家庭</text><text class="muted">›</text></view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-title"><text>开销分类</text></view>
+    <view class="cats">
+      <view wx:for="{{categories}}" wx:key="id" class="cat">
+        <view class="cat-icon" style="background: {{item.tint}}">{{item.icon}}</view>
+        <view class="tiny">{{item.name}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card about small secondary">
+    <view class="bold" style="margin-bottom: 8rpx">关于 Receipt Box</view>
+    <view>· 拍下超市、餐厅小票，自动识别商户、日期、商品与金额</view>
+    <view>· 商品自动分类，按日 / 周 / 月 / 年统计家庭开销</view>
+    <view>· 记录每样商品在不同时间、不同商店的价格，帮你找到最划算的地方</view>
+  </view>
+</view>
