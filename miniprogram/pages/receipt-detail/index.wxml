@@ -1,7 +1,7 @@
 <view class="container" wx:if="{{view}}">
   <view class="card head">
     <view class="row">
-      <view class="icon-badge big">{{view.merchantIcon}}</view>
+      <view class="icon-badge lg" style="background: {{view.merchantTint}}">{{view.merchantIcon}}</view>
       <view class="flex-1">
         <view class="merchant">{{view.merchantName}}</view>
         <view class="muted small">{{view.branch ? view.branch + ' · ' : ''}}{{view.merchantType}}</view>
@@ -10,11 +10,11 @@
     <view class="total num">{{view.total}}</view>
     <view class="muted small">{{view.date}}</view>
     <view class="meta-grid">
-      <view wx:if="{{view.paymentMethod}}" class="meta"><text class="muted">支付 </text>{{view.paymentMethod}}</view>
-      <view wx:if="{{view.tax}}" class="meta"><text class="muted">GST </text>{{view.tax}}</view>
-      <view wx:if="{{view.discount}}" class="meta"><text class="muted">整单优惠 </text>{{view.discount}}</view>
-      <view class="meta"><text class="muted">来源 </text>{{view.source}}</view>
-      <view class="meta"><text class="muted">记录人 </text>{{view.createdByName}}</view>
+      <view wx:if="{{view.paymentMethod}}" class="meta tag"><text class="muted">支付 </text>{{view.paymentMethod}}</view>
+      <view wx:if="{{view.tax}}" class="meta tag"><text class="muted">GST </text>{{view.tax}}</view>
+      <view wx:if="{{view.discount}}" class="meta tag"><text class="muted">整单优惠 </text>{{view.discount}}</view>
+      <view class="meta tag"><text class="muted">来源 </text>{{view.source}}</view>
+      <view class="meta tag"><text class="muted">记录人 </text>{{view.createdByName}}</view>
     </view>
     <view wx:if="{{view.address}}" class="muted small">📍 {{view.address}}</view>
     <view wx:if="{{view.note}}" class="note small">📝 {{view.note}}</view>
@@ -32,7 +32,7 @@
     </view>
     <view wx:for="{{view.groups}}" wx:for-item="g" wx:key="id" class="group">
       <view class="group-head row between">
-        <text class="bold">{{g.icon}} {{g.name}}</text>
+        <view class="row"><view class="icon-badge sm" style="background: {{g.tint}}">{{g.icon}}</view><text class="bold">{{g.name}}</text></view>
         <text class="num secondary">{{g.amountText}}</text>
       </view>
       <view wx:for="{{g.items}}" wx:key="i" class="item row" data-key="{{item.productKey}}" bindtap="onItemTap" hover-class="hover">

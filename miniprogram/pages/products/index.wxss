@@ -1,34 +1,15 @@
-.search {
-  display: flex;
-  align-items: center;
-  background: var(--surface);
-  border-radius: 20rpx;
-  padding: 0 24rpx;
-  height: 76rpx;
-  margin-bottom: 20rpx;
-}
-
-.search-input {
-  flex: 1;
-  margin-left: 12rpx;
-}
-
-.clear {
-  padding: 12rpx;
-}
-
 .list {
   margin-top: 24rpx;
 }
 
 .product {
-  padding: 24rpx 28rpx;
-  margin-bottom: 16rpx;
+  padding: 26rpx 28rpx 22rpx;
+  margin-bottom: 18rpx;
 }
 
 .name {
   font-size: 30rpx;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .spec {
@@ -41,14 +22,18 @@
 }
 
 .price {
-  font-size: 32rpx;
-  font-weight: 600;
+  font-size: 34rpx;
+  font-weight: 700;
 }
 
 .foot {
-  margin-top: 14rpx;
-  padding-top: 14rpx;
+  margin-top: 18rpx;
+  padding-top: 16rpx;
   border-top: 1rpx solid var(--border);
+}
+
+.foot .tag {
+  margin-right: 12rpx;
 }
 
 .range {

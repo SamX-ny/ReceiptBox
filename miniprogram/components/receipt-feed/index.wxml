@@ -2,7 +2,7 @@
   <view wx:for="{{groups}}" wx:for-item="g" wx:key="date" class="day card">
     <view class="day-head row between">
       <text class="bold">{{g.label}}</text>
-      <text class="muted small num">{{g.receipts.length}} 笔 · {{g.totalText}}</text>
+      <text class="day-total small num">{{g.receipts.length}} 笔 · {{g.totalText}}</text>
     </view>
     <rb-receipt-item wx:for="{{g.receipts}}" wx:key="_id" receipt="{{item}}" />
   </view>

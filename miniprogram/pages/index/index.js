@@ -74,6 +74,7 @@ Page({
       id: x.localId,
       status: x.status,
       thumb: x.path,
+      chip: x.status === 'uploading' ? '上传中' : '失败',
       title: x.status !== 'uploading' ? '上传失败'
         : x.stage === 'compress' ? '压缩照片…'
         : x.stage === 'upload' ? '上传中 ' + x.progress + '%'
@@ -86,6 +87,7 @@ Page({
       id: j._id,
       status: j.status,
       thumb: j.imageUrl,
+      chip: j.status === 'processing' ? '识别中' : j.status === 'ready' ? '待核对' : '失败',
       title: j.status === 'processing' ? '识别中…'
         : j.status === 'ready' ? (j.merchantName || '识别完成')
         : '识别失败',
@@ -181,6 +183,7 @@ Page({
             return {
               id: c.id,
               icon: cat.icon,
+              tint: format.tint(cat.color),
               name: cat.name,
               amount: format.money(c.amount),
               percent: c.percent,

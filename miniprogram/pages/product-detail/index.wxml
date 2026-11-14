@@ -1,7 +1,7 @@
 <view class="container" wx:if="{{v}}">
   <view class="card head">
     <view class="row">
-      <view class="icon-badge">{{v.icon}}</view>
+      <view class="icon-badge lg" style="background: {{v.tint}}">{{v.icon}}</view>
       <view class="flex-1">
         <view class="title">{{p.productName}}</view>
         <view class="muted small">
@@ -19,23 +19,23 @@
         <text wx:if="{{v.latestMeasure}}" class="muted small num"> ≈ {{v.latestMeasure}}</text>
       </view>
       <view class="small secondary">{{v.latestWhere}}
-        <text wx:if="{{v.latestVsAvg !== null && v.count > 1}}" class="{{v.latestVsAvg > 0 ? 'up' : 'down'}}"> · 较均价 {{v.latestVsAvgText}}</text>
+        <text wx:if="{{v.latestVsAvg !== null && v.count > 1}}" class="delta {{v.latestVsAvg > 0 ? 'up' : 'down'}}">较均价 {{v.latestVsAvgText}}</text>
       </view>
     </view>
 
     <view class="kpis">
       <view class="kpi">
         <view class="muted tiny">最低</view>
-        <view class="bold num">{{v.min}}</view>
+        <view class="kpi-value down">{{v.min}}</view>
         <view class="muted tiny ellipsis">{{v.minWhere}}</view>
       </view>
       <view class="kpi">
         <view class="muted tiny">均价</view>
-        <view class="bold num">{{v.avg}}</view>
+        <view class="kpi-value">{{v.avg}}</view>
       </view>
       <view class="kpi">
         <view class="muted tiny">最高</view>
-        <view class="bold num">{{v.max}}</view>
+        <view class="kpi-value up">{{v.max}}</view>
         <view class="muted tiny ellipsis">{{v.maxWhere}}</view>
       </view>
     </view>

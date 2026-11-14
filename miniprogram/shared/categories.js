@@ -1,44 +1,45 @@
 // ⚠️ 自动生成：请修改仓库根目录 shared/ 下的源文件，然后运行 npm run sync
 /**
  * 开销分类（商品级）与商户类型定义。
+ * color 只用于图标底色等装饰（淡色圆底），图表仍使用统一的系列色。
  *
  * 本文件是 shared/ 下的源文件，通过 `npm run sync` 复制到
  * miniprogram/shared 与各云函数目录，请勿直接修改副本。
  */
 
 const CATEGORIES = [
-  { id: 'produce', name: '果蔬', en: 'Fruit & Veg', icon: '🥬' },
-  { id: 'meat', name: '肉禽水产', en: 'Meat & Seafood', icon: '🥩' },
-  { id: 'dairy', name: '乳品蛋类', en: 'Dairy & Eggs', icon: '🥛' },
-  { id: 'bakery', name: '烘焙面包', en: 'Bakery', icon: '🍞' },
-  { id: 'pantry', name: '粮油调味', en: 'Pantry', icon: '🍚' },
-  { id: 'frozen', name: '冷冻食品', en: 'Frozen', icon: '🧊' },
-  { id: 'snacks', name: '零食甜点', en: 'Snacks', icon: '🍪' },
-  { id: 'beverages', name: '饮料酒水', en: 'Drinks', icon: '🥤' },
-  { id: 'household', name: '日用清洁', en: 'Household', icon: '🧻' },
-  { id: 'personal', name: '个护美妆', en: 'Personal Care', icon: '🧴' },
-  { id: 'baby', name: '母婴', en: 'Baby', icon: '🍼' },
-  { id: 'pet', name: '宠物', en: 'Pet', icon: '🐾' },
-  { id: 'health', name: '医药保健', en: 'Health', icon: '💊' },
-  { id: 'dining', name: '餐饮外食', en: 'Dining Out', icon: '🍜' },
-  { id: 'home', name: '家居电器', en: 'Home & Electronics', icon: '🔌' },
-  { id: 'clothing', name: '服饰鞋包', en: 'Clothing', icon: '👕' },
-  { id: 'transport', name: '交通燃油', en: 'Transport & Fuel', icon: '⛽' },
-  { id: 'other', name: '其他', en: 'Other', icon: '📦' }
+  { id: 'produce', name: '果蔬', en: 'Fruit & Veg', icon: '🥬', color: '#3fa34d' },
+  { id: 'meat', name: '肉禽水产', en: 'Meat & Seafood', icon: '🥩', color: '#dc2626' },
+  { id: 'dairy', name: '乳品蛋类', en: 'Dairy & Eggs', icon: '🥛', color: '#3b82f6' },
+  { id: 'bakery', name: '烘焙面包', en: 'Bakery', icon: '🍞', color: '#c2843a' },
+  { id: 'pantry', name: '粮油调味', en: 'Pantry', icon: '🍚', color: '#d99a00' },
+  { id: 'frozen', name: '冷冻食品', en: 'Frozen', icon: '🧊', color: '#17a2b8' },
+  { id: 'snacks', name: '零食甜点', en: 'Snacks', icon: '🍪', color: '#f97316' },
+  { id: 'beverages', name: '饮料酒水', en: 'Drinks', icon: '🥤', color: '#8b5cf6' },
+  { id: 'household', name: '日用清洁', en: 'Household', icon: '🧻', color: '#64748b' },
+  { id: 'personal', name: '个护美妆', en: 'Personal Care', icon: '🧴', color: '#ec4899' },
+  { id: 'baby', name: '母婴', en: 'Baby', icon: '🍼', color: '#f472b6' },
+  { id: 'pet', name: '宠物', en: 'Pet', icon: '🐾', color: '#a16207' },
+  { id: 'health', name: '医药保健', en: 'Health', icon: '💊', color: '#14b8a6' },
+  { id: 'dining', name: '餐饮外食', en: 'Dining Out', icon: '🍜', color: '#e11d48' },
+  { id: 'home', name: '家居电器', en: 'Home & Electronics', icon: '🔌', color: '#6366f1' },
+  { id: 'clothing', name: '服饰鞋包', en: 'Clothing', icon: '👕', color: '#a855f7' },
+  { id: 'transport', name: '交通燃油', en: 'Transport & Fuel', icon: '⛽', color: '#475569' },
+  { id: 'other', name: '其他', en: 'Other', icon: '📦', color: '#9ca3af' }
 ];
 
 const MERCHANT_TYPES = [
-  { id: 'supermarket', name: '超市', icon: '🛒' },
-  { id: 'restaurant', name: '餐厅', icon: '🍽️' },
-  { id: 'cafe', name: '咖啡/茶饮', icon: '☕' },
-  { id: 'takeaway', name: '外卖/快餐', icon: '🍔' },
-  { id: 'convenience', name: '便利店', icon: '🏪' },
-  { id: 'grocer', name: '生鲜/亚超', icon: '🥢' },
-  { id: 'pharmacy', name: '药房', icon: '💊' },
-  { id: 'fuel', name: '加油站', icon: '⛽' },
-  { id: 'department', name: '百货/家居', icon: '🏬' },
-  { id: 'online', name: '网购', icon: '📦' },
-  { id: 'other', name: '其他', icon: '🧾' }
+  { id: 'supermarket', name: '超市', icon: '🛒', color: '#16a34a' },
+  { id: 'restaurant', name: '餐厅', icon: '🍽️', color: '#e11d48' },
+  { id: 'cafe', name: '咖啡/茶饮', icon: '☕', color: '#b45309' },
+  { id: 'takeaway', name: '外卖/快餐', icon: '🍔', color: '#f97316' },
+  { id: 'convenience', name: '便利店', icon: '🏪', color: '#0ea5e9' },
+  { id: 'grocer', name: '生鲜/亚超', icon: '🥢', color: '#65a30d' },
+  { id: 'pharmacy', name: '药房', icon: '💊', color: '#14b8a6' },
+  { id: 'fuel', name: '加油站', icon: '⛽', color: '#475569' },
+  { id: 'department', name: '百货/家居', icon: '🏬', color: '#6366f1' },
+  { id: 'online', name: '网购', icon: '📦', color: '#8b5cf6' },
+  { id: 'other', name: '其他', icon: '🧾', color: '#9ca3af' }
 ];
 
 const CATEGORY_IDS = CATEGORIES.map(function (c) { return c.id; });

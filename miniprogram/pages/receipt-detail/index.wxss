@@ -1,16 +1,12 @@
-.head .big {
-  width: 88rpx;
-  height: 88rpx;
-  font-size: 44rpx;
-}
-
 .merchant {
   font-size: 34rpx;
   font-weight: 600;
 }
 
 .total {
-  font-size: 64rpx;
+  font-size: 76rpx;
+  letter-spacing: -1rpx;
+  line-height: 1.25;
   font-weight: 700;
   margin-top: 24rpx;
 }
@@ -22,8 +18,9 @@
 }
 
 .meta {
-  font-size: 24rpx;
-  margin: 0 28rpx 8rpx 0;
+  margin: 0 12rpx 12rpx 0;
+  padding: 6rpx 18rpx;
+  color: var(--text-primary);
 }
 
 .note {
@@ -62,7 +59,7 @@
 }
 
 .item {
-  padding: 16rpx 0 16rpx 44rpx;
+  padding: 16rpx 0 16rpx 84rpx;
   border-bottom: 1rpx solid var(--border);
 }
 
@@ -85,4 +82,8 @@
 
 .actions {
   margin-top: 8rpx;
+}
+
+.meta .muted {
+  margin-right: 8rpx;
 }

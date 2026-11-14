@@ -80,7 +80,7 @@
     <view wx:for="{{items}}" wx:key="key" class="item">
       <view class="row">
         <picker range="{{categoryNames}}" value="{{item.catIndex}}" data-index="{{index}}" bindchange="onItemCategory">
-          <view class="cat-btn">{{item.catIcon}}</view>
+          <view class="cat-btn" style="background: {{item.catTint}}">{{item.catIcon}}</view>
         </picker>
         <input class="item-name flex-1" placeholder="商品名称" value="{{item.name}}" data-index="{{index}}" data-field="name" bindinput="onItemInput" />
         <view class="remove" data-index="{{index}}" bindtap="removeItem">✕</view>

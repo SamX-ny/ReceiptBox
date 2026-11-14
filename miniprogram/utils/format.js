@@ -39,6 +39,13 @@ function shortDate(s) {
   return (d.getMonth() + 1) + '/' + d.getDate();
 }
 
+/** 把 #rrggbb 转成半透明底色，用于图标圆底：浅色、深色模式下都能看清上面的图标 */
+function tint(hex, alpha) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+  if (!m) return 'rgba(127, 127, 127, 0.14)';
+  return 'rgba(' + parseInt(m[1], 16) + ', ' + parseInt(m[2], 16) + ', ' + parseInt(m[3], 16) + ', ' + (alpha === undefined ? 0.14 : alpha) + ')';
+}
+
 function category(id) {
   return categories.getCategory(id);
 }
@@ -53,6 +60,7 @@ module.exports = {
   percent: percent,
   friendlyDate: friendlyDate,
   shortDate: shortDate,
+  tint: tint,
   category: category,
   merchantType: merchantType
 };

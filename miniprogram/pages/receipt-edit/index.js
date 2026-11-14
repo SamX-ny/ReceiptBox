@@ -37,6 +37,7 @@ function itemView(it) {
     discount: Number(it.discount) || 0,
     category: cat.id,
     catIcon: cat.icon,
+    catTint: format.tint(cat.color),
     catName: cat.name,
     catIndex: categories.CATEGORY_IDS.indexOf(cat.id)
   };
@@ -224,7 +225,7 @@ Page({
         const mtIdx = this.data.form.merchantTypeIndex;
         const fallback = categories.defaultCategoryForMerchantType(categories.MERCHANT_TYPE_IDS[mtIdx]);
         const cat = categories.getCategory(categories.guessCategory(value, fallback));
-        Object.assign(it, { category: cat.id, catIcon: cat.icon, catName: cat.name, catIndex: categories.CATEGORY_IDS.indexOf(cat.id) });
+        Object.assign(it, { category: cat.id, catIcon: cat.icon, catTint: format.tint(cat.color), catName: cat.name, catIndex: categories.CATEGORY_IDS.indexOf(cat.id) });
       }
     }
     if (field === 'quantity' || field === 'unitPrice') {
@@ -245,6 +246,7 @@ Page({
     this.setData({
       ['items[' + idx + '].category']: cat.id,
       ['items[' + idx + '].catIcon']: cat.icon,
+      ['items[' + idx + '].catTint']: format.tint(cat.color),
       ['items[' + idx + '].catName']: cat.name,
       ['items[' + idx + '].catIndex']: Number(e.detail.value),
       ['items[' + idx + '].categoryTouched']: true

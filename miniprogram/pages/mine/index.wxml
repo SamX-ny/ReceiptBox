@@ -1,11 +1,12 @@
 <view class="container">
-  <view class="card profile" bindtap="onNickName">
-    <view class="avatar">👤</view>
+  <view class="profile" bindtap="onNickName">
+    <view class="profile-deco"></view>
+    <view class="avatar">{{nickName ? nickName[0] : '👤'}}</view>
     <view class="flex-1">
       <view class="bold big">{{nickName || '设置昵称'}}</view>
-      <view class="muted small">家人在小票上看到的记录人名字</view>
+      <view class="profile-sub">家人在小票上看到的记录人名字</view>
     </view>
-    <text class="muted">›</text>
+    <text class="profile-arrow">›</text>
   </view>
 
   <view class="card" wx:if="{{family}}">
@@ -34,9 +35,9 @@
     <view class="muted tiny">家人用邀请码加入后，大家拍的小票会汇总到同一个账本。</view>
 
     <view class="links">
-      <view class="link-item" bindtap="onJoin">🔑 输入邀请码加入其他家庭</view>
-      <view wx:if="{{family.isOwner}}" class="link-item" bindtap="onResetCode">🔄 重置邀请码</view>
-      <view wx:if="{{!family.isPersonal}}" class="link-item danger" bindtap="onLeave">🚪 退出这个家庭</view>
+      <view class="link-item" bindtap="onJoin"><text class="flex-1">🔑 输入邀请码加入其他家庭</text><text class="muted">›</text></view>
+      <view wx:if="{{family.isOwner}}" class="link-item" bindtap="onResetCode"><text class="flex-1">🔄 重置邀请码</text><text class="muted">›</text></view>
+      <view wx:if="{{!family.isPersonal}}" class="link-item danger" bindtap="onLeave"><text class="flex-1">🚪 退出这个家庭</text><text class="muted">›</text></view>
     </view>
   </view>
 
@@ -44,7 +45,7 @@
     <view class="card-title"><text>开销分类</text></view>
     <view class="cats">
       <view wx:for="{{categories}}" wx:key="id" class="cat">
-        <view class="cat-icon">{{item.icon}}</view>
+        <view class="cat-icon" style="background: {{item.tint}}">{{item.icon}}</view>
         <view class="tiny">{{item.name}}</view>
       </view>
     </view>

@@ -83,6 +83,7 @@ module.exports = function createProductsPage() {
               name: p.productName,
               spec: p.spec,
               icon: cat.icon,
+            tint: format.tint(cat.color),
               lastPrice: format.money(p.lastPrice) + unit,
               lastWhere: p.lastMerchant + ' · ' + format.friendlyDate(p.lastDate),
               range: p.minPrice !== p.maxPrice ? format.money(p.minPrice) + ' ~ ' + format.money(p.maxPrice) : '',

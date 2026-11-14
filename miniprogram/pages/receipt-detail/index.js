@@ -27,7 +27,7 @@ Page({
       const groups = {};
       (r.items || []).forEach((it, i) => {
         const cat = format.category(it.category);
-        if (!groups[cat.id]) groups[cat.id] = { id: cat.id, icon: cat.icon, name: cat.name, amount: 0, items: [] };
+        if (!groups[cat.id]) groups[cat.id] = { id: cat.id, icon: cat.icon, tint: format.tint(cat.color), name: cat.name, amount: 0, items: [] };
         const measure = product.measurePrice(it);
         groups[cat.id].amount += it.totalPrice;
         groups[cat.id].items.push({
@@ -49,6 +49,7 @@ Page({
         r: r,
         view: {
           merchantIcon: mt.icon,
+          merchantTint: format.tint(mt.color),
           merchantType: mt.name,
           merchantName: r.merchant.name,
           branch: r.merchant.branch,

@@ -2,9 +2,9 @@
   <view wx:if="{{mergeFrom}}" class="warn-banner">选择与「{{mergeName}}」是同一种商品的条目，合并后可以一起比较价格。</view>
 
   <view class="search">
-    <text class="muted">🔍</text>
+    <image class="search-icon" src="/images/icons/search-gray.png" />
     <input class="search-input" placeholder="搜索商品，如 可乐、milk" value="{{keyword}}" confirm-type="search" bindinput="onSearchInput" />
-    <text wx:if="{{keyword}}" class="muted clear" bindtap="onSearchClear">✕</text>
+    <text wx:if="{{keyword}}" class="clear" bindtap="onSearchClear">✕</text>
   </view>
 
   <view class="segmented">
@@ -18,7 +18,7 @@
   <view class="list">
     <view wx:for="{{list}}" wx:key="key" class="product card" data-key="{{item.key}}" data-name="{{item.name}}" bindtap="onTap" hover-class="btn-hover">
       <view class="row">
-        <view class="icon-badge">{{item.icon}}</view>
+        <view class="icon-badge" style="background: {{item.tint}}">{{item.icon}}</view>
         <view class="flex-1">
           <view class="name ellipsis">{{item.name}}<text wx:if="{{item.spec}}" class="tag spec">{{item.spec}}</text></view>
           <view class="muted tiny ellipsis">{{item.lastWhere}}</view>
@@ -28,9 +28,10 @@
           <view wx:if="{{item.measure}}" class="muted tiny num">{{item.measure}}</view>
         </view>
       </view>
-      <view class="foot row tiny muted">
-        <text>买过 {{item.count}} 次 · {{item.storeCount}} 家店</text>
-        <text wx:if="{{item.range}}" class="flex-1 range num">区间 {{item.range}}</text>
+      <view class="foot row tiny">
+        <text class="tag">买过 {{item.count}} 次</text>
+        <text class="tag">{{item.storeCount}} 家店</text>
+        <text wx:if="{{item.range}}" class="flex-1 range num muted">{{item.range}}</text>
       </view>
     </view>
   </view>

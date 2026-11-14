@@ -33,6 +33,7 @@ Page({
         p: res.product,
         v: {
           icon: cat.icon,
+          tint: format.tint(cat.color),
           catName: cat.name,
           catIndex: categories.CATEGORY_IDS.indexOf(cat.id),
           unitSuffix: unitSuffix,

@@ -116,22 +116,24 @@ Page({
       })),
       categories: rank(s.byCategory, (c) => {
         const cat = format.category(c.id);
-        return { id: c.id, icon: cat.icon, name: cat.name };
+        return { id: c.id, icon: cat.icon, tint: format.tint(cat.color), name: cat.name };
       }),
       merchants: rank(s.byMerchant, (m) => ({
         name: m.name,
         icon: format.merchantType(m.type).icon,
+        tint: format.tint(format.merchantType(m.type).color),
         count: m.count
       })),
       merchantTypes: rank(s.byMerchantType, (m) => {
         const mt = format.merchantType(m.id);
-        return { id: m.id, icon: mt.icon, name: mt.name };
+        return { id: m.id, icon: mt.icon, tint: format.tint(mt.color), name: mt.name };
       }),
       topItems: s.topItems.map((it) => ({
         productKey: it.productKey,
         name: it.name,
         spec: it.spec,
         icon: format.category(it.category).icon,
+        tint: format.tint(format.category(it.category).color),
         times: it.times,
         amountText: format.money(it.amount)
       }))
@@ -142,6 +144,7 @@ Page({
     return list.map((r) => ({
       _id: r._id,
       icon: format.merchantType(r.merchant.type).icon,
+      tint: format.tint(format.merchantType(r.merchant.type).color),
       merchant: r.merchant.name + (r.merchant.branch ? ' · ' + r.merchant.branch : ''),
       time: r.time,
       total: format.money(r.total),

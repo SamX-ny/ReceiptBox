@@ -5,12 +5,13 @@
 const app = getApp();
 const api = require('../../utils/api');
 const categories = require('../../shared/categories');
+const format = require('../../utils/format');
 
 Page({
   data: {
     family: null,
     nickName: '',
-    categories: categories.CATEGORIES,
+    categories: categories.CATEGORIES.map((c) => ({ id: c.id, icon: c.icon, name: c.name, tint: format.tint(c.color) })),
     pendingInvite: ''
   },
 

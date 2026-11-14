@@ -23,6 +23,7 @@ Component({
       this.setData({
         view: {
           icon: mt.icon,
+          tint: format.tint(mt.color),
           name: (r.merchant && r.merchant.name) || '未知商户',
           branch: (r.merchant && r.merchant.branch) || '',
           meta: meta.join(' · '),
